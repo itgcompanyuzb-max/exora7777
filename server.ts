@@ -41,6 +41,7 @@ function getGmailTransporter(): Transporter | null {
 async function startServer() {
   const app = express();
   app.use(express.json());
+  app.use(express.static(path.join(process.cwd(), "public")));
 
   // Forex Broker API v1 router
   app.use("/api/v1", brokerRouter);

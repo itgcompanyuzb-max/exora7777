@@ -11,7 +11,7 @@ import {
   FileText, 
   Camera, 
   AlertTriangle 
-} from "../icons/FlaticonIcons";
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface KycVerificationViewProps {

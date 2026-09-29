@@ -8,7 +8,7 @@ import {
   Copy,
   Check,
   Sparkles,
-} from "../icons/FlaticonIcons";
+} from "lucide-react";
 import { GlassButton } from "@/components/site/GlassButton";
 import { toast } from "sonner";
 import {

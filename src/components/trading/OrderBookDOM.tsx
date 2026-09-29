@@ -5,7 +5,7 @@ import {
   liveMarketFeed 
 } from '../../lib/liveMarketFeed';
 import { ForexSymbolRate } from '../../types/broker';
-import { ArrowDown, ArrowUp, Activity, Layers, History } from "../icons/FlaticonIcons";
+import { ArrowDown, ArrowUp, Activity, Layers, History } from 'lucide-react';
 
 interface OrderBookDOMProps {
   selectedSymbol: ForexSymbolRate;

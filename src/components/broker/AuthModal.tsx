@@ -11,7 +11,7 @@ import {
   ArrowRight, 
   X,
   Send
-} from "../icons/FlaticonIcons";
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface AuthModalProps {

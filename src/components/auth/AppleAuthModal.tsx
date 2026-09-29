@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, ShieldCheck, ArrowRight, Fingerprint } from "../icons/FlaticonIcons";
+import { X, ShieldCheck, ArrowRight, Fingerprint } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { registerOrUpdateUser } from "@/lib/userStore";

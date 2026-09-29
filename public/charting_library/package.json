@@ -1,0 +1,18 @@
+{
+  "name": "@suntree/charting_library",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "maidou",
+  "license": "ISC",
+  "description": "CL v26.003 (internal id e793d706 @ 2023-10-05T20:27:44.510Z)",
+  "type": "module",
+  "main": "./charting_library.cjs.js",
+  "module": "./charting_library.esm.js",
+  "types": "./charting_library.d.ts",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  } 
+}

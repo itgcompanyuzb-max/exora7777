@@ -12,22 +12,22 @@ import { AdminPortalView } from "./components/broker/AdminPortalView";
 import { MediaCenterView } from "./components/broker/MediaCenterView";
 import { AuthModal } from "./components/broker/AuthModal";
 import { 
+  ShieldCheck, 
+  TrendingUp, 
+  Wallet, 
+  Layers, 
+  BookOpen, 
+  HelpCircle, 
+  Lock, 
+  Globe, 
+  Menu, 
+  X, 
   ChevronDown,
-  ArrowUpRight
-} from "./components/icons/FlaticonIcons";
-import {
-  FlaticonTrading,
-  FlaticonWallet,
-  FlaticonShield,
-  FlaticonSupport,
-  FlaticonMedia,
-  FlaticonLock,
-  FlaticonMenu,
-  FlaticonClose,
-  FlaticonUser,
-  FlaticonLogOut,
-  FlaticonForex
-} from "./components/icons/FlaticonIcons";
+  User,
+  LogOut,
+  ArrowUpRight,
+  Radio
+} from "lucide-react";
 
 export default function App() {
   const [lang, setLang] = useState<Language>('uz');
@@ -54,12 +54,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0e110f] text-[#f4f7f2] font-sans antialiased selection:bg-primary selection:text-black flex flex-col justify-between">
+    <div className={`min-h-screen bg-[#0e110f] text-[#f4f7f2] font-sans antialiased selection:bg-primary selection:text-black flex flex-col ${activeTab === 'webtrader' ? 'h-screen overflow-hidden' : 'justify-between'}`}>
       <Toaster position="top-right" theme="dark" richColors />
 
-      {/* 2. PRIMARY NAVBAR (Only displayed on landing page before login/register) */}
-      {activeTab === 'landing' && (
-        <header className="sticky top-0 z-40 bg-[#0e110f]/90 backdrop-blur-xl border-b border-white/10">
+      {/* 2. PRIMARY NAVBAR (Displayed across all sections for fast navigation) */}
+      <header className="sticky top-0 z-40 bg-[#0e110f]/90 backdrop-blur-xl border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between">
             {/* Brand Logo */}
             <div 
@@ -96,7 +95,7 @@ export default function App() {
                   activeTab === 'webtrader' ? 'bg-primary text-black font-bold shadow-md' : 'text-muted-foreground hover:text-white'
                 }`}
               >
-                <FlaticonTrading className="size-4" />
+                <TrendingUp className="size-3.5" />
                 <span>{t.webTraderTitle}</span>
               </button>
               <button
@@ -105,8 +104,17 @@ export default function App() {
                   activeTab === 'cabinet' ? 'bg-white/10 text-white font-bold' : 'text-muted-foreground hover:text-white'
                 }`}
               >
-                <FlaticonWallet className="size-4" />
+                <Wallet className="size-3.5 text-primary" />
                 <span>{t.clientCabinet}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('media')}
+                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                  activeTab === 'media' ? 'bg-white/10 text-white font-bold' : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                <Radio className="size-3.5 text-primary" />
+                <span>{t.navMedia}</span>
               </button>
               <button
                 onClick={() => setActiveTab('kyc')}
@@ -114,7 +122,7 @@ export default function App() {
                   activeTab === 'kyc' ? 'bg-white/10 text-white font-bold' : 'text-muted-foreground hover:text-white'
                 }`}
               >
-                <FlaticonShield className="size-4" />
+                <ShieldCheck className="size-3.5 text-emerald-400" />
                 <span>{t.kycStatus}</span>
               </button>
               <button
@@ -123,17 +131,8 @@ export default function App() {
                   activeTab === 'support' ? 'bg-white/10 text-white font-bold' : 'text-muted-foreground hover:text-white'
                 }`}
               >
-                <FlaticonSupport className="size-4" />
+                <HelpCircle className="size-3.5 text-blue-400" />
                 <span>{t.support}</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('media')}
-                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                  activeTab === 'media' ? 'bg-primary/20 text-primary font-bold border border-primary/30' : 'text-muted-foreground hover:text-white'
-                }`}
-              >
-                <FlaticonMedia className="size-4" />
-                <span>{t.navMedia}</span>
               </button>
               <button
                 onClick={() => setActiveTab('admin')}
@@ -141,7 +140,7 @@ export default function App() {
                   activeTab === 'admin' ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40' : 'text-rose-400/80 hover:text-rose-300'
                 }`}
               >
-                <FlaticonLock className="size-4" />
+                <Lock className="size-3.5" />
                 <span>Admin Panel</span>
               </button>
             </nav>
@@ -184,9 +183,9 @@ export default function App() {
             <div className="flex items-center gap-2 lg:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white cursor-pointer"
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white"
               >
-                {mobileMenuOpen ? <FlaticonClose className="size-5" /> : <FlaticonMenu className="size-5" />}
+                {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
               </button>
             </div>
           </div>
@@ -216,44 +215,44 @@ export default function App() {
               </button>
               <button
                 onClick={() => { setActiveTab('webtrader'); setMobileMenuOpen(false); }}
-                className="text-left py-2 text-sm font-bold text-primary flex items-center gap-2.5"
+                className="text-left py-2 text-sm font-bold text-primary flex items-center gap-2"
               >
-                <FlaticonTrading className="size-5" />
+                <TrendingUp className="size-4" />
                 <span>{t.webTraderTitle}</span>
               </button>
               <button
                 onClick={() => { setActiveTab('cabinet'); setMobileMenuOpen(false); }}
-                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2.5"
+                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2"
               >
-                <FlaticonWallet className="size-5" />
+                <Wallet className="size-4 text-primary" />
                 <span>{t.clientCabinet}</span>
               </button>
               <button
-                onClick={() => { setActiveTab('kyc'); setMobileMenuOpen(false); }}
-                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2.5"
+                onClick={() => { setActiveTab('media'); setMobileMenuOpen(false); }}
+                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2"
               >
-                <FlaticonShield className="size-5" />
+                <Radio className="size-4 text-primary" />
+                <span>{t.navMedia}</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('kyc'); setMobileMenuOpen(false); }}
+                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2"
+              >
+                <ShieldCheck className="size-4 text-emerald-400" />
                 <span>{t.kycStatus}</span>
               </button>
               <button
                 onClick={() => { setActiveTab('support'); setMobileMenuOpen(false); }}
-                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2.5"
+                className="text-left py-2 text-sm font-semibold text-white flex items-center gap-2"
               >
-                <FlaticonSupport className="size-5" />
+                <HelpCircle className="size-4 text-blue-400" />
                 <span>{t.support}</span>
               </button>
               <button
-                onClick={() => { setActiveTab('media'); setMobileMenuOpen(false); }}
-                className="text-left py-2 text-sm font-semibold text-primary flex items-center gap-2.5"
-              >
-                <FlaticonMedia className="size-5" />
-                <span>{t.navMedia}</span>
-              </button>
-              <button
                 onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }}
-                className="text-left py-2 text-sm font-bold text-rose-400 flex items-center gap-2.5"
+                className="text-left py-2 text-sm font-bold text-rose-400 flex items-center gap-2"
               >
-                <FlaticonLock className="size-5" />
+                <Lock className="size-4" />
                 <span>Admin Panel</span>
               </button>
 
@@ -274,7 +273,6 @@ export default function App() {
             </div>
           )}
         </header>
-      )}
 
       {/* 3. MAIN WORKSPACE CONTAINER */}
       {activeTab === 'cabinet' ? (
@@ -283,11 +281,12 @@ export default function App() {
             lang={lang}
             onOpenKyc={() => setActiveTab('kyc')}
             onOpenTrade={() => setActiveTab('webtrader')}
+            onOpenMedia={() => setActiveTab('media')}
             onLogout={() => setActiveTab('landing')}
           />
         </div>
       ) : activeTab === 'webtrader' ? (
-        <div className="flex-1 w-full h-full flex flex-col">
+        <div className="flex-1 w-full h-[calc(100vh-4.5rem)] overflow-hidden flex flex-col">
           <WebTraderView
             lang={lang}
             onOpenDeposit={() => setActiveTab('cabinet')}
@@ -302,7 +301,6 @@ export default function App() {
               onOpenTrading={() => setActiveTab('webtrader')}
               onOpenCabinet={() => setActiveTab('cabinet')}
               onOpenRegister={() => handleOpenAuth('register')}
-              onOpenMedia={() => setActiveTab('media')}
             />
           )}
 
@@ -330,22 +328,6 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'media' && (
-            <div className="space-y-4">
-              <button
-                onClick={() => setActiveTab('cabinet')}
-                className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-300 hover:text-white inline-flex items-center gap-1.5 border border-white/10"
-              >
-                &larr; Kabinetga qaytish
-              </button>
-              <MediaCenterView 
-                lang={lang} 
-                onOpenTrading={() => setActiveTab('webtrader')}
-                onOpenCabinet={() => setActiveTab('cabinet')}
-              />
-            </div>
-          )}
-
           {activeTab === 'admin' && (
             <div className="space-y-4">
               <button
@@ -355,6 +337,22 @@ export default function App() {
                 &larr; Kabinetga qaytish
               </button>
               <AdminPortalView lang={lang} />
+            </div>
+          )}
+
+          {activeTab === 'media' && (
+            <div className="space-y-4">
+              <button
+                onClick={() => setActiveTab('cabinet')}
+                className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-300 hover:text-white inline-flex items-center gap-1.5 border border-white/10 cursor-pointer"
+              >
+                &larr; Kabinetga qaytish
+              </button>
+              <MediaCenterView
+                lang={lang}
+                onOpenTrading={() => setActiveTab('webtrader')}
+                onOpenCabinet={() => setActiveTab('cabinet')}
+              />
             </div>
           )}
         </main>
@@ -377,7 +375,6 @@ export default function App() {
               <button onClick={() => setActiveTab('cabinet')} className="hover:text-white">Kabinet</button>
               <button onClick={() => setActiveTab('kyc')} className="hover:text-white">KYC</button>
               <button onClick={() => setActiveTab('support')} className="hover:text-white">Yordam</button>
-              <button onClick={() => setActiveTab('media')} className="text-primary hover:underline">Media & Yangiliklar</button>
               <button onClick={() => setActiveTab('admin')} className="text-rose-400 hover:text-rose-300">Admin</button>
             </div>
           </div>

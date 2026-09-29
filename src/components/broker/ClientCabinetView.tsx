@@ -3,78 +3,68 @@ import { brokerStore } from "../../lib/brokerStore";
 import { translations, Language } from "../../lib/i18n";
 import { TradingAccount, Transaction, AccountType, PaymentMethod } from "../../types/broker";
 import { 
+  CreditCard, 
+  ArrowDownLeft, 
+  ArrowDownRight,
+  ArrowUpRight, 
+  Wallet, 
+  Layers, 
   Copy, 
   Check, 
-  ExternalLink, 
-  ChevronDown, 
-  ChevronUp, 
-  ChevronRight, 
-  ChevronsLeft, 
-  ChevronsRight, 
-  RotateCcw, 
-  MoreVertical, 
-  Calendar, 
-  DollarSign, 
-  MessageSquare, 
-  List, 
-  Grid,
-  ShieldCheck,
-  ShieldCheck as Shield,
-  LogOut,
-  TrendingUp,
-  Wallet,
-  FileText,
-  Newspaper,
+  ShieldCheck, 
+  Clock, 
+  Users, 
+  Plus, 
+  QrCode,
+  AlertCircle,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Sun,
+  Moon,
+  Globe,
   HelpCircle,
+  Bell,
   User as UserIcon,
-  Users,
-  Plus,
-  Download,
-  Search,
-  X,
+  RotateCcw,
+  FileText,
+  TrendingUp,
+  History,
   Send,
-  Menu
-} from "../icons/FlaticonIcons";
-import {
-  FlaticonTrading,
-  FlaticonWallet,
-  FlaticonDeposit,
-  FlaticonWithdraw,
-  FlaticonTransfer,
-  FlaticonShield,
-  FlaticonSupport,
-  FlaticonMedia,
-  FlaticonLock,
-  FlaticonCreditCard,
-  FlaticonSearch,
-  FlaticonSun,
-  FlaticonMoon,
-  FlaticonBell,
-  FlaticonUser,
-  FlaticonUsers,
-  FlaticonHistory,
-  FlaticonLogOut,
-  FlaticonPlus,
-  FlaticonFileText,
-  FlaticonQrCode,
-  FlaticonAlert,
-  FlaticonMenu,
-  FlaticonClose,
-  FlaticonCheck,
-  FlaticonSparkles
-} from "../icons/FlaticonIcons";
+  Download,
+  X,
+  Lock,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  CheckCircle2,
+  Calendar,
+  DollarSign,
+  ArrowRightLeft,
+  Shield,
+  MessageSquare,
+  Sparkles,
+  Search,
+  List,
+  Grid,
+  LogOut,
+  BarChart3
+} from "lucide-react";
 import { toast } from "sonner";
-import { MediaCenterView } from "./MediaCenterView";
+import { TradingViewChart } from "../trading/TradingViewChart";
 
 interface ClientCabinetViewProps {
   lang: Language;
   onOpenKyc: () => void;
   onOpenTrade: () => void;
-  onLogout?: () => void;
   onOpenMedia?: () => void;
+  onLogout?: () => void;
 }
 
-export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOpenMedia }: ClientCabinetViewProps) {
+export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, onLogout }: ClientCabinetViewProps) {
   const t = translations[lang];
   const [currentUser, setCurrentUser] = useState(brokerStore.getActiveUser());
   const [accounts, setAccounts] = useState<TradingAccount[]>(brokerStore.getAccounts());
@@ -84,16 +74,14 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
   const [currentNav, setCurrentNav] = useState<
     'accounts' | 'performance' | 'history' | 'deposit' | 'withdraw' | 'transfer' | 
     'tx_history' | 'funding_wallet' | 'crypto_wallet' | 'insights' | 'benefits' | 
-    'support_hub' | 'profile' | 'referrals' | 'media'
+    'support_hub' | 'profile' | 'referrals'
   >('accounts');
-
-  // Mobile sidebar drawer
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Sidebar collapsible sections
   const [tradingOpen, setTradingOpen] = useState(true);
   const [paymentsOpen, setPaymentsOpen] = useState(true);
-  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(true);
+  const [cabinetChartSymbol, setCabinetChartSymbol] = useState<string>('EURUSD');
   const [benefitsOpen, setBenefitsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -328,15 +316,8 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${bgMain}`}>
       {/* 1. PERSONAL AREA HEADER BAR */}
       <header className={`sticky top-0 z-30 h-16 border-b px-4 sm:px-6 flex items-center justify-between ${bgHeader}`}>
-        {/* Left: Mobile menu toggle + Logo */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setMobileSidebarOpen(true)}
-            className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 border border-gray-200 dark:border-white/10 cursor-pointer"
-            title="Menyu"
-          >
-            <FlaticonMenu className="size-5" />
-          </button>
+        {/* Left: Logo + Mobile menu toggle */}
+        <div className="flex items-center gap-4">
           <div 
             onClick={() => setCurrentNav('accounts')}
             className="flex items-center gap-2.5 cursor-pointer select-none"
@@ -380,7 +361,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
                     className="flex flex-col items-center gap-2 group cursor-pointer"
                   >
                     <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-[#232832] group-hover:bg-[#ffde00] group-hover:text-black dark:group-hover:bg-[#ffde00] dark:group-hover:text-black border border-gray-200/60 dark:border-[#2f3542] flex items-center justify-center text-gray-800 dark:text-gray-200 transition-all duration-150 shadow-xs group-active:scale-95">
-                      <FlaticonDeposit className="size-6 transition-transform group-hover:scale-110" />
+                      <ArrowDownRight className="size-5 transition-transform group-hover:translate-x-0.5 group-hover:translate-y-0.5" />
                     </div>
                     <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                       Deposit
@@ -393,7 +374,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
                     className="flex flex-col items-center gap-2 group cursor-pointer"
                   >
                     <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-[#232832] group-hover:bg-[#ffde00] group-hover:text-black dark:group-hover:bg-[#ffde00] dark:group-hover:text-black border border-gray-200/60 dark:border-[#2f3542] flex items-center justify-center text-gray-800 dark:text-gray-200 transition-all duration-150 shadow-xs group-active:scale-95">
-                      <FlaticonWithdraw className="size-6 transition-transform group-hover:scale-110" />
+                      <ArrowUpRight className="size-5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                     </div>
                     <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                       Withdrawal
@@ -406,7 +387,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
                     className="flex flex-col items-center gap-2 group cursor-pointer"
                   >
                     <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-[#232832] group-hover:bg-[#ffde00] group-hover:text-black dark:group-hover:bg-[#ffde00] dark:group-hover:text-black border border-gray-200/60 dark:border-[#2f3542] flex items-center justify-center text-gray-800 dark:text-gray-200 transition-all duration-150 shadow-xs group-active:scale-95">
-                      <FlaticonTransfer className="size-6 transition-transform group-hover:rotate-180" />
+                      <ArrowRightLeft className="size-5 transition-transform group-hover:rotate-180" />
                     </div>
                     <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                       Transfer
@@ -477,7 +458,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
                     onClick={() => { setCurrentNav('tx_history'); setShowBalanceDropdown(false); }}
                     className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white flex items-center gap-1.5 font-medium transition-colors cursor-pointer"
                   >
-                    <FlaticonHistory className="size-4" />
+                    <History className="size-3.5" />
                     <span>Transaction history</span>
                   </button>
                   <button
@@ -494,38 +475,38 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
           {/* 2. Search Icon (Qidiruv) */}
           <button
             onClick={() => setShowSearchModal(true)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all border border-transparent hover:border-gray-200 dark:hover:border-white/10 cursor-pointer"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all border border-transparent hover:border-gray-200 dark:hover:border-white/10"
             title="Qidiruv (Aktivlar, hisoblar, xizmatlar)"
           >
-            <FlaticonSearch className="size-4" />
+            <Search className="size-4" />
           </button>
 
           {/* 3. Theme Toggle (Sun/Moon) */}
           <button
             onClick={() => setCabinetTheme(isDark ? 'light' : 'dark')}
             title="Mavzuni o'zgartirish (Tun / Kun)"
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all"
           >
-            {isDark ? <FlaticonSun className="size-4" /> : <FlaticonMoon className="size-4" />}
+            {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </button>
 
           {/* 4. Help & Support Icon (?) */}
           <button
             onClick={() => setShowSupportModal(true)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all"
             title="Yordam markazi & Live Chat"
           >
-            <FlaticonSupport className="size-4" />
+            <HelpCircle className="size-4" />
           </button>
 
           {/* 5. Notifications Bell */}
           <div className="relative">
             <button
               onClick={() => setShowNotificationDrawer(!showNotificationDrawer)}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all relative cursor-pointer"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all relative"
               title="Bildirishnomalar"
             >
-              <FlaticonBell className="size-4" />
+              <Bell className="size-4" />
               <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#f59e0b]" />
             </button>
 
@@ -616,133 +597,9 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
       </header>
 
       {/* 2. BODY LAYOUT: SIDEBAR + MAIN CONTENT AREA */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* MOBILE DRAWER SIDEBAR */}
-        {mobileSidebarOpen && (
-          <div className="fixed inset-0 z-50 md:hidden flex">
-            <div 
-              className="fixed inset-0 bg-black/75 backdrop-blur-xs"
-              onClick={() => setMobileSidebarOpen(false)}
-            />
-            <div className={`relative z-10 w-72 max-w-[82vw] h-full flex flex-col justify-between shadow-2xl p-4 border-r ${bgSidebar}`}>
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/10 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#ffde00] text-black font-black flex items-center justify-center text-xs">
-                    EX
-                  </div>
-                  <span className="font-extrabold text-gray-900 dark:text-white text-base">EXORA PRIME</span>
-                </div>
-                <button
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-600 dark:text-white cursor-pointer"
-                >
-                  <FlaticonClose className="size-4" />
-                </button>
-              </div>
-
-              {/* Mobile Drawer Navigation list */}
-              <div className="flex-1 overflow-y-auto space-y-1.5 py-2">
-                <button
-                  onClick={() => { setCurrentNav('accounts'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 ${
-                    currentNav === 'accounts' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <FlaticonTrading className="size-4" />
-                  <span>Hisoblar (Accounts)</span>
-                </button>
-                <button
-                  onClick={() => { setCurrentNav('deposit'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 ${
-                    currentNav === 'deposit' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <FlaticonDeposit className="size-4" />
-                  <span>Depozit qilish</span>
-                </button>
-                <button
-                  onClick={() => { setCurrentNav('withdraw'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 ${
-                    currentNav === 'withdraw' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <FlaticonWithdraw className="size-4" />
-                  <span>Pul yechib olish</span>
-                </button>
-                <button
-                  onClick={() => { setCurrentNav('transfer'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 ${
-                    currentNav === 'transfer' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <FlaticonTransfer className="size-4" />
-                  <span>O'tkazmalar (Transfer)</span>
-                </button>
-                <button
-                  onClick={() => { onOpenTrade(); setMobileSidebarOpen(false); }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 bg-primary/20 text-primary border border-primary/30"
-                >
-                  <FlaticonTrading className="size-4" />
-                  <span>WebTrader Terminal</span>
-                </button>
-                <button
-                  onClick={() => { setCurrentNav('media'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between ${
-                    currentNav === 'media' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <FlaticonMedia className="size-4" />
-                    <span>Media & Yangiliklar</span>
-                  </div>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-primary/20 text-primary font-bold">Yangi</span>
-                </button>
-                <button
-                  onClick={() => { setCurrentNav('history'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 ${
-                    currentNav === 'history' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <FlaticonHistory className="size-4" />
-                  <span>Buyurtmalar tarixi</span>
-                </button>
-                <button
-                  onClick={() => { onOpenKyc(); setMobileSidebarOpen(false); }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 text-emerald-500"
-                >
-                  <FlaticonShield className="size-4" />
-                  <span>KYC Verifikatsiyasi</span>
-                </button>
-                <button
-                  onClick={() => { setCurrentNav('support_hub'); setMobileSidebarOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-3 ${
-                    currentNav === 'support_hub' ? 'bg-[#ffde00] text-black' : 'text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <FlaticonSupport className="size-4" />
-                  <span>Yordam markazi (Support)</span>
-                </button>
-              </div>
-
-              {/* Mobile Drawer Logout */}
-              <div className="pt-3 border-t border-gray-100 dark:border-white/10">
-                <button
-                  onClick={() => {
-                    setMobileSidebarOpen(false);
-                    onLogout?.();
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-500 flex items-center gap-2 hover:bg-rose-500/10 cursor-pointer"
-                >
-                  <FlaticonLogOut className="size-4" />
-                  <span>Chiqish</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* LEFT SIDEBAR (Desktop) */}
-        <aside className={`hidden md:flex ${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 border-r flex-col justify-between transition-all duration-200 select-none ${bgSidebar}`}>
+      <div className="flex-1 flex overflow-hidden">
+        {/* LEFT SIDEBAR (Matching Screenshot 1 & 2) */}
+        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 border-r flex flex-col justify-between transition-all duration-200 select-none ${bgSidebar}`}>
           {/* Scrollable menu items */}
           <div className="p-3 overflow-y-auto space-y-1">
             {/* SECTION 1: TRADING */}
@@ -918,10 +775,33 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
                 <div className="pl-7 pr-1 space-y-0.5 mt-0.5">
                   <button
                     onClick={() => setCurrentNav('insights')}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between transition-colors ${
+                      currentNav === 'insights'
+                        ? 'bg-[#edf2f7] dark:bg-white/10 text-gray-900 dark:text-white font-bold'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <BarChart3 className="size-3 text-primary" />
+                      <span>TradingView Grafiki</span>
+                    </span>
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-primary/20 text-primary font-mono font-bold">LIVE</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentNav('insights')}
                     className="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5"
                   >
-                    Market Analysis & Calendar
+                    Bozor Tahlili & Kalendar
                   </button>
+                  {onOpenMedia && (
+                    <button
+                      onClick={onOpenMedia}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs text-primary hover:bg-primary/10 transition-colors flex items-center justify-between font-semibold"
+                    >
+                      <span>Media & Yangiliklar Hub</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary">NEW</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -954,22 +834,6 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
                 </div>
               )}
             </div>
-
-            {/* Media & News Hub */}
-            <button
-              onClick={() => setCurrentNav('media')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${
-                currentNav === 'media' ? 'bg-[#edf2f7] dark:bg-white/10 text-gray-900 dark:text-white font-bold' : ''
-              } ${sidebarCollapsed ? 'justify-center' : ''}`}
-            >
-              <Newspaper className="size-4 text-primary" />
-              {!sidebarCollapsed && (
-                <div className="flex items-center justify-between flex-1">
-                  <span>Media & Yangiliklar</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold">Yangi</span>
-                </div>
-              )}
-            </button>
 
             {/* Support Hub */}
             <button
@@ -1044,7 +908,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
         </aside>
 
         {/* RIGHT MAIN WORKSPACE */}
-        <div className="flex-1 overflow-y-auto px-3 sm:px-8 py-6 max-w-6xl pb-24 md:pb-8 w-full">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 max-w-6xl">
           {/* ======================= TAB 1: ACCOUNTS (DEFAULT SCREEN) ======================= */}
           {currentNav === 'accounts' && (
             <div className="space-y-6">
@@ -2179,14 +2043,70 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
             </div>
           )}
 
-          {/* ======================= TAB: MEDIA & NEWS CENTER ======================= */}
-          {currentNav === 'media' && (
+          {/* ======================= TAB 9: INSIGHTS & TRADINGVIEW CHARTS ======================= */}
+          {currentNav === 'insights' && (
             <div className="space-y-6">
-              <MediaCenterView
-                lang={lang}
-                onOpenTrading={onOpenTrade}
-                onOpenCabinet={() => setCurrentNav('accounts')}
-              />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-2">
+                    <BarChart3 className="size-3.5" />
+                    <span>TradingView Advanced Charts</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    Bozor Tahlili & Jonli TradingView Grafiki
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Real vaqtdagi xalqaro kotirovkalar, texnik tahlil va indikatorlar to'plami.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onOpenTrade}
+                    className="px-4 py-2.5 rounded-xl bg-primary text-black font-extrabold text-xs shadow-md shadow-primary/20 hover:opacity-90 flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <TrendingUp className="size-4" />
+                    <span>WebTrader Terminaliga o'tish</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Asset Switcher Ribbon */}
+              <div className="flex flex-wrap items-center gap-2 bg-gray-50 dark:bg-white/5 p-2 rounded-2xl border border-gray-200 dark:border-white/10">
+                {[
+                  { sym: 'EURUSD', name: 'EUR / USD', cat: 'Forex' },
+                  { sym: 'GBPUSD', name: 'GBP / USD', cat: 'Forex' },
+                  { sym: 'USDJPY', name: 'USD / JPY', cat: 'Forex' },
+                  { sym: 'XAUUSD', name: 'XAU / USD (Oltin)', cat: 'Metals' },
+                  { sym: 'BTCUSDT', name: 'Bitcoin (BTC)', cat: 'Crypto' },
+                  { sym: 'ETHUSDT', name: 'Ethereum (ETH)', cat: 'Crypto' },
+                  { sym: 'US30', name: 'US Wall St 30', cat: 'Indices' },
+                ].map((item) => (
+                  <button
+                    key={item.sym}
+                    onClick={() => setCabinetChartSymbol(item.sym)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-2 ${
+                      cabinetChartSymbol === item.sym
+                        ? 'bg-primary text-black font-bold shadow-xs'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <span>{item.name}</span>
+                    <span className="text-[10px] opacity-70 font-sans">{item.cat}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Interactive TradingView Container */}
+              <div className="h-[600px] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 bg-[#0a0d0b] shadow-2xl">
+                <TradingViewChart
+                  symbol={cabinetChartSymbol}
+                  interval="15"
+                  className="w-full h-full"
+                  onSymbolChange={(s) => setCabinetChartSymbol(s)}
+                  onQuickTrade={() => onOpenTrade()}
+                />
+              </div>
             </div>
           )}
 
@@ -3069,71 +2989,6 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onLogout, onOp
           </div>
         </div>
       )}
-
-      {/* 3. MOBILE BOTTOM NAVIGATION BAR (Exness / Binance App Style) */}
-      <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#131714]/95 backdrop-blur-xl border-t border-gray-200 dark:border-white/10 px-3 py-1.5 flex items-center justify-around shadow-2xl safe-area-pb"
-        aria-label="Mobile Navigation"
-      >
-        {/* Tab: Accounts */}
-        <button
-          onClick={() => setCurrentNav('accounts')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
-            currentNav === 'accounts' 
-              ? 'text-gray-900 dark:text-[#ffde00] font-bold' 
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          <FlaticonTrading className="size-4" />
-          <span className="text-[10px] tracking-tight">Hisoblar</span>
-        </button>
-
-        {/* Tab: Deposit */}
-        <button
-          onClick={() => setCurrentNav('deposit')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
-            currentNav === 'deposit' 
-              ? 'text-gray-900 dark:text-[#ffde00] font-bold' 
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          <FlaticonDeposit className="size-4" />
-          <span className="text-[10px] tracking-tight">Depozit</span>
-        </button>
-
-        {/* Central Trade Button */}
-        <button
-          onClick={onOpenTrade}
-          className="flex flex-col items-center gap-0.5 -mt-5 bg-gradient-to-tr from-amber-400 to-[#ffde00] text-black p-3 rounded-full shadow-lg shadow-amber-400/30 active:scale-95 transition-transform cursor-pointer"
-          title="WebTrader Savdo"
-        >
-          <FlaticonTrading className="size-5" />
-          <span className="text-[9px] font-black uppercase tracking-wider">Savdo</span>
-        </button>
-
-        {/* Tab: Media & News */}
-        <button
-          onClick={() => setCurrentNav('media')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all relative ${
-            currentNav === 'media' 
-              ? 'text-gray-900 dark:text-[#ffde00] font-bold' 
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          <FlaticonMedia className="size-4" />
-          <span className="text-[10px] tracking-tight">Media</span>
-          <span className="absolute top-0.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
-        </button>
-
-        {/* Tab: More / Menu */}
-        <button
-          onClick={() => setMobileSidebarOpen(true)}
-          className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all cursor-pointer"
-        >
-          <FlaticonMenu className="size-4" />
-          <span className="text-[10px] tracking-tight">Ko'proq</span>
-        </button>
-      </nav>
     </div>
   );
 }

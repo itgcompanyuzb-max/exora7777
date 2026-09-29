@@ -81,6 +81,7 @@ export interface TradingAccount {
 
 export interface Position {
   id: string;
+  ticket?: string;
   accountId: string;
   symbol: string;
   side: PositionSide;
@@ -96,6 +97,7 @@ export interface Position {
   status: PositionStatus;
   openedAt: string;
   closedAt?: string;
+  comment?: string;
 }
 
 export interface Transaction {

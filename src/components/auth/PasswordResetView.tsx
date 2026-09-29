@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, KeyRound, Mail, AlertCircle, CheckCircle2, Lock } from "../icons/FlaticonIcons";
+import { ArrowLeft, KeyRound, Mail, AlertCircle, CheckCircle2, Lock } from "lucide-react";
 import { GlassButton } from "@/components/site/GlassButton";
 import { toast } from "sonner";
 import { isUserRegistered, updateUserPassword } from "@/lib/userStore";

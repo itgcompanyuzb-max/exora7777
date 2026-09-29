@@ -2,35 +2,36 @@ import React, { useState } from "react";
 import { translations, Language } from "../../lib/i18n";
 import { brokerStore } from "../../lib/brokerStore";
 import { 
+  ShieldCheck, 
+  TrendingUp, 
+  Zap, 
+  Percent, 
+  Globe2, 
   ChevronRight, 
-  ArrowUpRight
-} from "../icons/FlaticonIcons";
-import {
-  FlaticonShield,
-  FlaticonTrading,
-  FlaticonLightning,
-  FlaticonCreditCard,
-  FlaticonCheck,
-  FlaticonLock,
-  FlaticonMedia,
-  FlaticonTelegram,
-  FlaticonPlay,
-  FlaticonGold
-} from "../icons/FlaticonIcons";
+  ArrowUpRight,
+  CreditCard,
+  Building,
+  CheckCircle2,
+  Lock,
+  Layers,
+  Award,
+  BarChart3
+} from "lucide-react";
+import { TradingViewChart } from "../trading/TradingViewChart";
 
 interface LandingViewProps {
   lang: Language;
   onOpenTrading: () => void;
   onOpenCabinet: () => void;
   onOpenRegister: () => void;
-  onOpenMedia?: () => void;
 }
 
-export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister, onOpenMedia }: LandingViewProps) {
+export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister }: LandingViewProps) {
   const t = translations[lang];
   const symbols = brokerStore.getSymbols();
   const [calcLot, setCalcLot] = useState<number>(1.0);
   const [calcPip, setCalcPip] = useState<number>(25);
+  const [landingChartSymbol, setLandingChartSymbol] = useState<string>('EURUSD');
 
   const estimatedProfit = (calcLot * 10 * calcPip).toFixed(2);
 
@@ -44,7 +45,7 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
         <div className="relative z-10 max-w-3xl">
           {/* License Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary mb-6">
-            <FlaticonShield className="size-4" />
+            <ShieldCheck className="size-4" />
             <span>{t.licenseBadge}</span>
           </div>
 
@@ -101,7 +102,7 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-              <FlaticonTrading className="size-5" />
+              <TrendingUp className="size-5 text-primary" />
               <span>{t.liveSpreads}</span>
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -155,6 +156,74 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
         </div>
       </section>
 
+      {/* 2.5 TRADINGVIEW REAL-TIME CHART INTERACTIVE TERMINAL */}
+      <section className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-[#0e120f]/80 p-5 sm:p-7 backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-2">
+              <BarChart3 className="size-3.5" />
+              <span>TradingView Live Terminal</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white">
+              {lang === 'uz' ? "TradingView Interaktiv Birja Grafigi" : "TradingView Interactive Market Chart"}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              {lang === 'uz' 
+                ? "TradingView rasmiy kutubxonasi yordamida jonli narxlar, texnik indikatorlar va real vaqtda tahlil" 
+                : "Real-time market data, technical indicators and deep candlestick analysis powered by TradingView"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onOpenTrading}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-black shadow-md shadow-primary/20 hover:opacity-90 transition-all"
+            >
+              <span>{t.webTraderTitle}</span>
+              <ArrowUpRight className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Market Tabs */}
+        <div className="flex flex-wrap items-center gap-1.5 pb-1">
+          {[
+            { label: 'EUR/USD', sym: 'EURUSD', desc: 'Forex Major' },
+            { label: 'GBP/USD', sym: 'GBPUSD', desc: 'Forex Major' },
+            { label: 'XAU/USD', sym: 'XAUUSD', desc: 'Gold Spot' },
+            { label: 'BTC/USDT', sym: 'BTCUSDT', desc: 'Bitcoin' },
+            { label: 'ETH/USDT', sym: 'ETHUSDT', desc: 'Ethereum' },
+            { label: 'US30', sym: 'US30', desc: 'Wall Street' },
+          ].map((item) => (
+            <button
+              key={item.sym}
+              onClick={() => setLandingChartSymbol(item.sym)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ${
+                landingChartSymbol === item.sym
+                  ? 'bg-primary text-black font-bold shadow-sm'
+                  : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/5'
+              }`}
+            >
+              <span>{item.label}</span>
+              <span className={`text-[10px] opacity-75 ${landingChartSymbol === item.sym ? 'text-black' : 'text-gray-400'}`}>
+                {item.desc}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* TradingView Chart Container */}
+        <div className="h-[480px] sm:h-[540px] w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+          <TradingViewChart
+            symbol={landingChartSymbol}
+            interval="15"
+            className="w-full h-full"
+            onSymbolChange={(sym) => setLandingChartSymbol(sym)}
+            onQuickTrade={() => onOpenTrading()}
+          />
+        </div>
+      </section>
+
       {/* 3. ACCOUNT TIERS COMPARISON */}
       <section className="flex flex-col gap-6">
         <div className="text-center max-w-2xl mx-auto">
@@ -181,19 +250,19 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
 
               <ul className="mt-6 flex flex-col gap-3 text-xs sm:text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Spred: 1.0 pipdan</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Kaldıraç (Leverage): <strong>1:500 gacha</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Komissiya: <strong>$0 (Mutlaqo bepul)</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Ijro: Instant / Market Execution</span>
                 </li>
               </ul>
@@ -225,23 +294,23 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
 
               <ul className="mt-6 flex flex-col gap-3 text-xs sm:text-sm text-white/90">
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Spred: <strong>0.5 pipdan</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Kaldıraç (Leverage): <strong>1:200 gacha</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Komissiya: $3.5 / lot</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Shaxsiy hisob menejeri</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>VPS bepul taqdim etiladi</span>
                 </li>
               </ul>
@@ -269,19 +338,19 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
 
               <ul className="mt-6 flex flex-col gap-3 text-xs sm:text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Spred: <strong>0.0 Pip (Xom spredlar)</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Kaldıraç (Leverage): <strong>1:100 gacha</strong></span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>Komissiya: $6.0 / round lot</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <FlaticonCheck className="size-4 shrink-0" />
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
                   <span>To'g'ridan-to'g'ri LMAX & Currenex likvidligi</span>
                 </li>
               </ul>
@@ -302,7 +371,7 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
         {/* Interactive Pip / Profit Calculator */}
         <div className="glass rounded-3xl p-6 sm:p-8 border border-white/10">
           <div className="flex items-center gap-2.5 text-primary font-bold text-sm">
-            <FlaticonLightning className="size-4" />
+            <Zap className="size-4" />
             <span>Foyda & Pip Kalkulyatori</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-bold text-white mt-2">
@@ -366,7 +435,7 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
         <div className="glass rounded-3xl p-6 sm:p-8 border border-white/10 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2.5 text-primary font-bold text-sm">
-              <FlaticonCreditCard className="size-4" />
+              <CreditCard className="size-4" />
               <span>O'zbekiston & Xalqaro To'lovlar</span>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-white mt-2">
@@ -421,7 +490,7 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
 
           <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <FlaticonLock className="size-4" />
+              <Lock className="size-3.5 text-primary" />
               <span>256-bit Shifrlangan Xavfsiz Tranzaksiyalar</span>
             </span>
             <button
@@ -430,103 +499,6 @@ export function LandingView({ lang, onOpenTrading, onOpenCabinet, onOpenRegister
             >
               Kabinetga o'tish &rarr;
             </button>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. MEDIA & MARKET INSIGHTS SECTION */}
-      <section className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-2">
-              <FlaticonMedia className="size-4" />
-              <span>Media & Tahlillar</span>
-            </div>
-            <h2 className="text-xl sm:text-3xl font-extrabold text-white">
-              Bozor Yangiliklari va Video Akademiya
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Kunlik Oltin, Valyuta va Kripto tahlillari, video darsliklar hamda 50,000+ faol treyderlar kanali.
-            </p>
-          </div>
-
-          <button
-            onClick={onOpenMedia}
-            className="self-start sm:self-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold border border-white/10 transition-all cursor-pointer"
-          >
-            <span>Barcha Media Materiallar</span>
-            <ChevronRight className="size-4 text-primary" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Card 1: XAUUSD News */}
-          <div 
-            onClick={onOpenMedia}
-            className="p-5 rounded-3xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-primary/40 transition-all cursor-pointer flex flex-col justify-between gap-4"
-          >
-            <div>
-              <div className="flex items-center justify-between text-[11px] mb-2">
-                <span className="px-2 py-0.5 rounded bg-primary/20 text-primary font-bold">Commodities</span>
-                <span className="text-muted-foreground">Bugun, 15:40</span>
-              </div>
-              <h3 className="text-sm font-bold text-white leading-snug">
-                Oltin (XAU/USD) yangi rekord sari: $2,750 darajasi va AQSh inflyatsiya bosimi
-              </h3>
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                Markaziy banklar tomonidan oltin xaridi va geosiyosiy xatarlar fonida oltin narxi yangi cho'qqilarni zabt etmoqda.
-              </p>
-            </div>
-            <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs text-primary font-bold">
-              <span>Batafsil o'qish</span>
-              <ChevronRight className="size-3.5" />
-            </div>
-          </div>
-
-          {/* Card 2: Video Academy */}
-          <div 
-            onClick={onOpenMedia}
-            className="p-5 rounded-3xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-rose-500/40 transition-all cursor-pointer flex flex-col justify-between gap-4"
-          >
-            <div>
-              <div className="flex items-center justify-between text-[11px] mb-2">
-                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold">Video Dars</span>
-                <span className="text-muted-foreground">18:45 daqiqa</span>
-              </div>
-              <h3 className="text-sm font-bold text-white leading-snug">
-                Exora WebTrader va MT5 terminalida professional savdo boshlash
-              </h3>
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                Grafik sozlamalari, buyurtma turlari (Limit, Stop), Stop Loss va Take Profit to'g'ri hisoblash bo'yicha amaliy qo'llanma.
-              </p>
-            </div>
-            <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs text-rose-400 font-bold">
-              <span>Videoni tomosha qilish</span>
-              <FlaticonPlay className="size-4" />
-            </div>
-          </div>
-
-          {/* Card 3: Telegram Community */}
-          <div 
-            onClick={onOpenMedia}
-            className="p-5 rounded-3xl bg-gradient-to-b from-[#229ED9]/15 to-transparent border border-[#229ED9]/30 hover:border-[#229ED9] transition-all cursor-pointer flex flex-col justify-between gap-4"
-          >
-            <div>
-              <div className="flex items-center justify-between text-[11px] mb-2">
-                <span className="px-2 py-0.5 rounded bg-[#229ED9]/30 text-[#229ED9] font-bold">Telegram Kanal</span>
-                <span className="text-emerald-400 font-mono font-bold">48,200+ faol</span>
-              </div>
-              <h3 className="text-sm font-bold text-white leading-snug">
-                Exora Prime Rasmiy Signallar va Tahlillar Kanali
-              </h3>
-              <p className="text-xs text-muted-foreground mt-2">
-                Har kuni ertalabki ovozli brifinglar, jonli bozor prognozlari va boshqa treyderlar bilan muloqot.
-              </p>
-            </div>
-            <div className="pt-3 border-t border-[#229ED9]/20 flex items-center justify-between text-xs text-[#229ED9] font-bold">
-              <span>Hamjamiyatga qo'shilish</span>
-              <FlaticonTelegram className="size-4" />
-            </div>
           </div>
         </div>
       </section>

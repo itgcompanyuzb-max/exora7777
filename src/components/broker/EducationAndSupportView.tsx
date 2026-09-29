@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Clock,
   Sparkles
-} from "../icons/FlaticonIcons";
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface EducationAndSupportViewProps {

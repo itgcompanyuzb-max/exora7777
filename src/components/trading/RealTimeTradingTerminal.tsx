@@ -14,7 +14,7 @@ import {
   BarChart2, 
   Activity,
   Plus
-} from "../icons/FlaticonIcons";
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { TradingViewChart } from './TradingViewChart';
 
@@ -369,7 +369,19 @@ export function RealTimeTradingTerminal() {
 
         {/* B. CENTER CHART AREA (TradingView Engine) */}
         <main className="flex-1 flex flex-col bg-[#0a0d0b] relative overflow-hidden">
-          <TradingViewChart symbol={activeSymbol.symbol} interval="15" className="flex-1 w-full h-full" />
+          <TradingViewChart 
+            symbol={activeSymbol.symbol} 
+            interval="15" 
+            className="flex-1 w-full h-full"
+            onSymbolChange={(sym) => {
+              for (const [k, v] of symbols.entries()) {
+                if (v.symbol.replace(/[\/\-_]/g, '').toUpperCase() === sym.replace(/[\/\-_]/g, '').toUpperCase()) {
+                  setSelectedSymbolKey(k);
+                  break;
+                }
+              }
+            }}
+          />
         </main>
 
         {/* C. RIGHT ORDER EXECUTION PANEL */}

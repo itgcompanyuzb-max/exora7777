@@ -52,9 +52,8 @@ import {
   Unlock,
   Ruler,
   Radio,
-  Search,
   ExternalLink
-} from "../icons/FlaticonIcons";
+} from "lucide-react";
 import { toast } from "sonner";
 import { TradingViewChart } from "../trading/TradingViewChart";
 import { OrderBookDOM } from "../trading/OrderBookDOM";
@@ -142,7 +141,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     'BTC', 'ETH', 'SOL', 'XAU/USD', 'EUR/USD', 'GBP/USD', 'USD/JPY', 'US30'
   ]);
 
-  // Real-Time Internet Exchange Engine
+  // Real-Time Internet Exchange Engine ('tradingview' = Real TradingView Terminal with on-chart Exness position lines)
   const [chartEngine, setChartEngine] = useState<'tradingview' | 'canvas'>('tradingview');
   const [liveStatus, setLiveStatus] = useState<LiveMarketStatus>(liveMarketFeed.getStatus());
 
@@ -186,45 +185,13 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
   const [oneClickTrading, setOneClickTrading] = useState<boolean>(brokerStore.isOneClickTrading());
   const [showOneClickModal, setShowOneClickModal] = useState<boolean>(false);
 
-  // Right Side Panel Tab: 'order', 'dom' (Depth of Market), or 'analytics'
-  const [rightPanelTab, setRightPanelTab] = useState<'order' | 'dom' | 'analytics'>('order');
+  // Right Side Panel Tab: 'order', 'dom' (Depth of Market), 'positions', or 'analytics'
+  const [rightPanelTab, setRightPanelTab] = useState<'order' | 'dom' | 'positions' | 'analytics'>('order');
   const [economicFilter, setEconomicFilter] = useState<'all' | 'high' | 'medium'>('all');
 
-  // Bottom Dashboard Tab: 'positions' | 'pending' | 'history'
+  // Dashboard Sub Tab: 'positions' | 'pending' | 'history'
   const [bottomTab, setBottomTab] = useState<'positions' | 'pending' | 'history'>('positions');
-  const [bottomDockCollapsed, setBottomDockCollapsed] = useState<boolean>(false);
-
-  // Mobile Terminal Mode Switcher: 'chart' | 'order' | 'dom' | 'positions' | 'analytics'
-  const [mobileTerminalTab, setMobileTerminalTab] = useState<'chart' | 'order' | 'dom' | 'positions' | 'analytics'>('chart');
-
-  // Search & Symbol Selector Modal
-  const [showSymbolSearchModal, setShowSymbolSearchModal] = useState<boolean>(false);
-  const [symbolSearchQuery, setSymbolSearchQuery] = useState<string>('');
-  const [symbolCategoryFilter, setSymbolCategoryFilter] = useState<string>('all');
-
-  // Audio chime feedback for order executions
-  function playAudioFeedback(type: 'open' | 'close') {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      if (type === 'open') {
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
-      } else {
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(587.33, ctx.currentTime + 0.12);
-      }
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.18);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.18);
-    } catch {}
-  }
+  const [mobileViewTab, setMobileViewTab] = useState<'chart' | 'order' | 'dom' | 'positions'>('chart');
 
   // Modals for editing / partial close
   const [editPositionModal, setEditPositionModal] = useState<Position | null>(null);
@@ -241,6 +208,8 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [drawingStartPoint, setDrawingStartPoint] = useState<{ x: number; y: number } | null>(null);
+  // Interactive click zones for on-chart Exness position badges (Close, SL, TP)
+  const positionClickZonesRef = useRef<Array<{ x: number; y: number; w: number; h: number; action: 'close' | 'sl' | 'tp'; posId: string }>>([]);
 
   // Subscribe to store updates
   useEffect(() => {
@@ -352,7 +321,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
           `Ijro etildi: ${selectedSymbol.symbol} bo'yicha ${lotSize} lot ${orderSide.toUpperCase()} #${pos.id.slice(-6)} ochildi!`,
           { description: `Narx: ${pos.openPrice} | Marja: $${requiredMargin}` }
         );
-        playAudioFeedback('open');
         setSl('');
         setTp('');
       } catch (err: any) {
@@ -382,7 +350,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
         });
 
         toast.success(`Kechiktirilgan buyurtma joylashtirildi: ${pType.toUpperCase()} @ ${target}`);
-        playAudioFeedback('open');
         setSl('');
         setTp('');
       } catch (err: any) {
@@ -406,7 +373,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
         side,
         lotSize,
       });
-      playAudioFeedback('open');
       toast.success(`1-Click: ${selectedSymbol.symbol} ${lotSize} lot ${side.toUpperCase()} ochildi!`);
     } catch (e: any) {
       toast.error(e.message || "1-Click ijro etishda xatolik");
@@ -416,7 +382,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
   // Close position
   function handleClosePosition(posId: string) {
     brokerStore.closePosition(posId);
-    playAudioFeedback('close');
     toast.info("Pozitsiya yopildi va balansga qayd etildi.");
   }
 
@@ -424,7 +389,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
   function handleCloseAllPositions() {
     const count = brokerStore.closeAllPositions(selectedAccount?.id);
     if (count > 0) {
-      playAudioFeedback('close');
       toast.success(`Barcha ${count} ta ochiq pozitsiyalar yopildi!`);
     } else {
       toast.info("Yopish uchun faol pozitsiyalar mavjud emas");
@@ -622,31 +586,175 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     ctx.font = 'bold 10px monospace';
     ctx.fillText(selectedSymbol.ask.toFixed(selectedSymbol.digitPrecision), width - 57, currentAskY + 3);
 
-    // 6. Draw Open Position Lines on Chart
+    // 6. Draw Open Position Lines on Chart (Exness-Style Extended Line & Interactive Profit/Loss Badge)
+    positionClickZonesRef.current = [];
     userOpenPositions
-      .filter(p => p.symbol === selectedSymbol.symbol)
+      .filter(p => p.symbol === selectedSymbol.symbol || p.symbol.replace(/[\s\/-]/g, '') === selectedSymbol.symbol.replace(/[\s\/-]/g, ''))
       .forEach(pos => {
         const posPriceY = getY(pos.openPrice);
+        if (posPriceY < -25 || posPriceY > chartHeight + 25) return;
+
         const isBuy = pos.side === 'buy';
         const isPosProfit = pos.pnl >= 0;
+        // Exness theme: vibrant blue for BUY (#2563eb / #3b82f6), vibrant red for SELL (#dc2626 / #ef4444)
+        const lineColor = isBuy ? '#2563eb' : '#dc2626';
+        const badgeBorderColor = isBuy ? '#3b82f6' : '#ef4444';
 
-        ctx.strokeStyle = isBuy ? '#3b82f6' : '#f43f5e';
-        ctx.lineWidth = 1.2;
+        // A. Extended horizontal line running across the entire chart
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(0, posPriceY);
         ctx.lineTo(width - 60, posPriceY);
         ctx.stroke();
 
-        // Label on left
-        ctx.fillStyle = isBuy ? '#1e3a8a' : '#881337';
-        ctx.fillRect(10, posPriceY - 9, 130, 18);
-        ctx.fillStyle = '#ffffff';
+        // B. Exness Interactive Badge towards right side (just before right price axis)
+        const badgeTotalWidth = 206;
+        const startX = Math.max(10, width - 60 - badgeTotalWidth - 12);
+        const badgeY = posPriceY - 11;
+        const badgeH = 22;
+
+        // 1. [ TP ] Box
+        const tpW = 26;
+        const tpX = startX;
+        ctx.fillStyle = '#0a0e0b';
+        ctx.fillRect(tpX, badgeY, tpW, badgeH);
+        ctx.strokeStyle = pos.tp ? '#22c55e' : 'rgba(34, 197, 94, 0.7)';
+        ctx.lineWidth = 1;
+        if (!pos.tp) ctx.setLineDash([2, 2]);
+        ctx.strokeRect(tpX, badgeY, tpW, badgeH);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#22c55e';
         ctx.font = 'bold 9px monospace';
-        ctx.fillText(
-          `${pos.side.toUpperCase()} ${pos.lotSize}L | ${isPosProfit ? '+' : ''}$${pos.pnl.toFixed(2)}`,
-          14,
-          posPriceY + 3
-        );
+        ctx.textAlign = 'center';
+        ctx.fillText('TP', tpX + tpW / 2, badgeY + 14);
+
+        positionClickZonesRef.current.push({
+          x: tpX,
+          y: badgeY,
+          w: tpW,
+          h: badgeH,
+          action: 'tp',
+          posId: pos.id,
+        });
+
+        // 2. [ SL ] Box
+        const slW = 26;
+        const slX = tpX + tpW + 2;
+        ctx.fillStyle = '#0a0e0b';
+        ctx.fillRect(slX, badgeY, slW, badgeH);
+        ctx.strokeStyle = pos.sl ? '#f59e0b' : 'rgba(245, 158, 11, 0.7)';
+        ctx.lineWidth = 1;
+        if (!pos.sl) ctx.setLineDash([2, 2]);
+        ctx.strokeRect(slX, badgeY, slW, badgeH);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SL', slX + slW / 2, badgeY + 14);
+
+        positionClickZonesRef.current.push({
+          x: slX,
+          y: badgeY,
+          w: slW,
+          h: badgeH,
+          action: 'sl',
+          posId: pos.id,
+        });
+
+        // 3. [ 0.01 ] Lot size pill
+        const lotW = 38;
+        const lotX = slX + slW + 2;
+        ctx.fillStyle = lineColor;
+        ctx.fillRect(lotX, badgeY, lotW, badgeH);
+        ctx.strokeStyle = badgeBorderColor;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(lotX, badgeY, lotW, badgeH);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${pos.lotSize}`, lotX + lotW / 2, badgeY + 15);
+
+        // 4. [ -4.95 USD ] Live PnL tag
+        const pnlW = 90;
+        const pnlX = lotX + lotW;
+        ctx.fillStyle = '#0a0e0b';
+        ctx.fillRect(pnlX, badgeY, pnlW, badgeH);
+        ctx.strokeStyle = badgeBorderColor;
+        ctx.strokeRect(pnlX, badgeY, pnlW, badgeH);
+        ctx.fillStyle = isPosProfit ? '#4ade80' : '#f87171'; // Green for profit, red for loss
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        const pnlText = `${isPosProfit ? '+' : ''}${pos.pnl.toFixed(2)} USD`;
+        ctx.fillText(pnlText, pnlX + pnlW / 2, badgeY + 15);
+
+        // 5. [ ✕ ] Close button
+        const closeW = 20;
+        const closeX = pnlX + pnlW;
+        ctx.fillStyle = '#0a0e0b';
+        ctx.fillRect(closeX, badgeY, closeW, badgeH);
+        ctx.strokeStyle = badgeBorderColor;
+        ctx.strokeRect(closeX, badgeY, closeW, badgeH);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('✕', closeX + closeW / 2, badgeY + 14);
+
+        positionClickZonesRef.current.push({
+          x: closeX,
+          y: badgeY,
+          w: closeW,
+          h: badgeH,
+          action: 'close',
+          posId: pos.id,
+        });
+
+        // Reset textAlign
+        ctx.textAlign = 'left';
+
+        // C. Draw Stop-Loss dashed line if set
+        if (pos.sl) {
+          const slPriceY = getY(pos.sl);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(0, slPriceY);
+          ctx.lineTo(width - 60, slPriceY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // SL Label badge
+          ctx.fillStyle = '#78350f';
+          ctx.fillRect(width - 150, slPriceY - 8, 85, 16);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.strokeRect(width - 150, slPriceY - 8, 85, 16);
+          ctx.fillStyle = '#fef3c7';
+          ctx.font = 'bold 9px monospace';
+          ctx.fillText(`SL: ${pos.sl}`, width - 145, slPriceY + 4);
+        }
+
+        // D. Draw Take-Profit dashed line if set
+        if (pos.tp) {
+          const tpPriceY = getY(pos.tp);
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(0, tpPriceY);
+          ctx.lineTo(width - 60, tpPriceY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // TP Label badge
+          ctx.fillStyle = '#064e3b';
+          ctx.fillRect(width - 150, tpPriceY - 8, 85, 16);
+          ctx.strokeStyle = '#22c55e';
+          ctx.strokeRect(width - 150, tpPriceY - 8, 85, 16);
+          ctx.fillStyle = '#d1fae5';
+          ctx.font = 'bold 9px monospace';
+          ctx.fillText(`TP: ${pos.tp}`, width - 145, tpPriceY + 4);
+        }
       });
 
     // 7. Draw User Drawing Tools (Trendline, Horizontal Line, Fibonacci, Rectangles)
@@ -745,13 +853,47 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     userOpenPositions
   ]);
 
-  // Canvas Mouse Click Handling for Technical Analysis Tools
+  // Canvas Mouse Click Handling for Technical Analysis Tools and Position Badges
   function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // 1. Check if user clicked on any interactive position badges (Close [✕], [TP], [SL])
+    const clickedZone = positionClickZonesRef.current.find(
+      z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h
+    );
+
+    if (clickedZone) {
+      const pos = userOpenPositions.find(p => p.id === clickedZone.posId);
+      if (clickedZone.action === 'close') {
+        brokerStore.closePosition(clickedZone.posId);
+        toast.success(
+          `Bitim #${clickedZone.posId.slice(-6)} grafikdan yopildi! PnL: ${pos && pos.pnl >= 0 ? '+' : ''}$${pos?.pnl.toFixed(2) || '0.00'}`
+        );
+        return;
+      } else if (clickedZone.action === 'tp') {
+        const curTp = pos?.tp ? String(pos.tp) : '';
+        const input = prompt(`Take-Profit (TP) narxini kiriting [${pos?.symbol}]:`, curTp);
+        if (input !== null) {
+          const val = parseFloat(input);
+          brokerStore.updatePositionSlTp(clickedZone.posId, pos?.sl, isNaN(val) ? undefined : val);
+          toast.success("Take-Profit o'rnatildi!");
+        }
+        return;
+      } else if (clickedZone.action === 'sl') {
+        const curSl = pos?.sl ? String(pos.sl) : '';
+        const input = prompt(`Stop-Loss (SL) narxini kiriting [${pos?.symbol}]:`, curSl);
+        if (input !== null) {
+          const val = parseFloat(input);
+          brokerStore.updatePositionSlTp(clickedZone.posId, isNaN(val) ? undefined : val, pos?.tp);
+          toast.success("Stop-Loss o'rnatildi!");
+        }
+        return;
+      }
+    }
 
     if (activeDrawingTool === 'horizontal') {
       const newDrawn: DrawnElement = {
@@ -792,381 +934,130 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    setMousePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    });
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMousePos({ x, y });
+
+    // Change cursor to pointer if hovering over Exness badge buttons ([✕], [TP], [SL])
+    const isHoveringButton = positionClickZonesRef.current.some(
+      z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h
+    );
+    canvas.style.cursor = isHoveringButton ? 'pointer' : 'crosshair';
   }
 
   return (
     <div className={`w-full bg-[#0a0d0b] text-[#f4f7f2] flex flex-col font-sans select-none overflow-hidden ${
-      isFullscreen ? 'fixed inset-0 z-50 h-screen' : 'min-h-[calc(100vh-1rem)]'
+      isFullscreen ? 'fixed inset-0 z-50 h-screen' : 'h-[calc(100vh-4.5rem)]'
     }`}>
-      {/* ========================================================================= */}
-      {/* 1. TOP HEADER RIBBON: Cabinet Back + Symbol Switcher + Market Tabs + Account + Metrics */}
-      {/* ========================================================================= */}
-      <header className="h-14 border-b border-white/10 bg-[#111613] px-2 sm:px-4 flex items-center justify-between gap-2 shrink-0">
-        {/* Left: Back + Symbol Selector + Desktop Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-          {onReturnToCabinet && (
-            <button
-              onClick={onReturnToCabinet}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-300 hover:text-white border border-white/10 transition-colors shrink-0 cursor-pointer"
-              title="Kabinetga qaytish"
-            >
-              <ArrowLeft className="size-3.5" />
-              <span className="hidden sm:inline">Kabinet</span>
-            </button>
-          )}
-
-          {/* Active Symbol Picker Button */}
-          <button
-            onClick={() => setShowSymbolSearchModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-mono font-bold text-xs transition-all shrink-0 cursor-pointer shadow-xs"
-            title="Aktivni tanlash (Barcha bozorlar)"
-          >
-            <span className="text-white font-black tracking-tight">{selectedSymbol.symbol}</span>
-            <span className="text-primary font-bold text-[11px]">${selectedSymbol.bid.toFixed(selectedSymbol.digitPrecision)}</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${selectedSymbol.change24h >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-              {selectedSymbol.change24h >= 0 ? '+' : ''}{selectedSymbol.change24h}%
-            </span>
-            <ChevronDown className="size-3 text-gray-400" />
-          </button>
-
-          {/* Desktop Market Tabs (Horizontally scrollable) */}
-          <div className="hidden xl:flex items-center gap-1 border-l border-white/10 pl-2">
-            {openMarketTabs.map((symName) => {
-              const symData = symbols.find(s => s.symbol === symName);
-              const isActive = selectedSymbol.symbol === symName;
-              return (
-                <div
-                  key={symName}
-                  onClick={() => symData && handleSelectSymbol(symData)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer select-none ${
-                    isActive 
-                      ? 'bg-primary/20 text-primary border border-primary/30 font-bold' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
-                  }`}
-                >
-                  <span>{symName}</span>
-                  {openMarketTabs.length > 1 && (
-                    <button
-                      onClick={(e) => handleCloseTab(symName, e)}
-                      className="w-3.5 h-3.5 rounded hover:bg-white/20 flex items-center justify-center text-gray-400 hover:text-white"
-                    >
-                      <X className="size-2.5" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-            <button
-              onClick={() => setShowSymbolSearchModal(true)}
-              className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors text-xs cursor-pointer"
-              title="Yangi aktiv qo'shish"
-            >
-              <Plus className="size-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Right: Chart Engine + Metrics + Deposit CTA */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Chart Engine Switcher */}
-          <div className="hidden sm:flex items-center bg-white/5 p-0.5 rounded-xl border border-white/10 text-[11px] font-bold">
-            <button
-              onClick={() => setChartEngine('tradingview')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                chartEngine === 'tradingview' ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              TradingView
-            </button>
-            <button
-              onClick={() => setChartEngine('canvas')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                chartEngine === 'canvas' ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Live Engine
-            </button>
-          </div>
-
-          {/* Quick Metrics */}
-          <div className="flex items-center gap-2 sm:gap-3 text-xs font-mono">
-            <div>
-              <span className="text-[9px] text-gray-400 block -mb-0.5 uppercase">Balans</span>
-              <span className="font-bold text-white text-xs sm:text-sm">${selectedAccount?.balance.toFixed(2)}</span>
-            </div>
-            <div className="hidden sm:block">
-              <span className="text-[9px] text-gray-400 block -mb-0.5 uppercase">Ekvit</span>
-              <span className={`font-bold text-xs sm:text-sm ${totalFloatingPnl >= 0 ? 'text-primary' : 'text-rose-400'}`}>
-                ${selectedAccount?.equity.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Primary Deposit Button */}
-          <button
-            onClick={onOpenDeposit}
-            className="px-3 py-1.5 rounded-xl bg-[#ffde00] hover:bg-[#ebd000] text-black font-extrabold text-xs transition-all shadow-md flex items-center gap-1 cursor-pointer shrink-0"
-          >
-            <Plus className="size-3.5 stroke-[3]" />
-            <span className="hidden sm:inline">Depozit</span>
-          </button>
-
-          {/* Fullscreen Toggle */}
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-xs transition-colors shrink-0 cursor-pointer"
-            title={isFullscreen ? "Kichraytirish" : "To'liq ekran"}
-          >
-            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-          </button>
-        </div>
-      </header>
-
-      {/* MOBILE TERMINAL SUB-TABS (Only visible on screens < lg) */}
-      <div className="lg:hidden h-11 border-b border-white/10 bg-[#141916] px-2 flex items-center justify-between text-xs font-bold gap-1 shrink-0">
+      {/* Mobile Segmented View Mode Switcher (< lg) */}
+      <div className="lg:hidden flex items-center bg-[#141916] border-b border-white/10 px-2 py-1 gap-1 shrink-0 overflow-x-auto scrollbar-none text-xs">
         <button
-          onClick={() => setMobileTerminalTab('chart')}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            mobileTerminalTab === 'chart' ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
+          onClick={() => setMobileViewTab('chart')}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
+            mobileViewTab === 'chart' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
           }`}
         >
-          <Activity className="size-3.5" />
+          <TrendingUp className="size-3" />
           <span>Grafik</span>
         </button>
-
         <button
-          onClick={() => {
-            setMobileTerminalTab('order');
-            setRightPanelTab('order');
-          }}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            mobileTerminalTab === 'order' ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
+          onClick={() => { setMobileViewTab('order'); setRightPanelTab('order'); }}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
+            mobileViewTab === 'order' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
           }`}
         >
-          <Zap className="size-3.5" />
+          <Zap className="size-3" />
           <span>Buyurtma</span>
         </button>
-
         <button
-          onClick={() => {
-            setMobileTerminalTab('dom');
-            setRightPanelTab('dom');
-          }}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            mobileTerminalTab === 'dom' ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
+          onClick={() => { setMobileViewTab('dom'); setRightPanelTab('dom'); }}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
+            mobileViewTab === 'dom' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
           }`}
         >
-          <Layers className="size-3.5" />
+          <Layers className="size-3" />
           <span>DOM</span>
         </button>
-
         <button
-          onClick={() => setMobileTerminalTab('positions')}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 relative ${
-            mobileTerminalTab === 'positions' ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
+          onClick={() => { setMobileViewTab('positions'); setRightPanelTab('positions'); }}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
+            mobileViewTab === 'positions' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
           }`}
         >
-          <TrendingUp className="size-3.5" />
-          <span>Pozitsiya</span>
-          {userOpenPositions.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-400 text-black font-black">
-              {userOpenPositions.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => {
-            setMobileTerminalTab('analytics');
-            setRightPanelTab('analytics');
-          }}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            mobileTerminalTab === 'analytics' ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <Calendar className="size-3.5" />
-          <span>Taqvim</span>
+          <BarChart2 className="size-3" />
+          <span>Bitimlar ({userOpenPositions.length})</span>
         </button>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN WORKSPACE: Left Tools + Center Chart + Right Order Execution      */}
+      {/* 2. MAIN WORKSPACE: Center Chart + Right Order Execution                    */}
       {/* ========================================================================= */}
       <div className="flex-1 flex overflow-hidden">
         {/* --------------------------------------------------------------------- */}
-        {/* A. LEFT VERTICAL TOOLBAR: TradingView Analysis Tools                   */}
+        {/* CENTER CHART AREA: TradingView Real-Time Chart or Canvas Chart        */}
         {/* --------------------------------------------------------------------- */}
-        <aside className="hidden sm:flex w-12 bg-[#0e120f] border-r border-white/10 flex-col items-center py-2 gap-1 shrink-0 z-10">
-          <button
-            onClick={() => setActiveDrawingTool('cursor')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'cursor' ? 'bg-primary text-black shadow-xs font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Kursor (Pointer)"
-          >
-            <MousePointer className="size-4" />
-          </button>
-
-          <button
-            onClick={() => setActiveDrawingTool('crosshair')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'crosshair' ? 'bg-primary text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Nishon (Crosshair)"
-          >
-            <Crosshair className="size-4" />
-          </button>
-
-          <div className="w-6 h-px bg-white/10 my-1" />
-
-          {/* Trendline */}
-          <button
-            onClick={() => setActiveDrawingTool('trendline')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'trendline' ? 'bg-primary text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Trend Chizig'i (Trendline)"
-          >
-            <TrendingUp className="size-4" />
-          </button>
-
-          {/* Horizontal S/R Line */}
-          <button
-            onClick={() => setActiveDrawingTool('horizontal')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'horizontal' ? 'bg-primary text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Gorizontal Qo'llab-quvvatlash / Qarshilik Chizig'i"
-          >
-            <Minus className="size-4" />
-          </button>
-
-          {/* Fibonacci Retracement */}
-          <button
-            onClick={() => setActiveDrawingTool('fibonacci')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'fibonacci' ? 'bg-primary text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Fibonacci Qaytalanish (Retracement)"
-          >
-            <Layers className="size-4" />
-          </button>
-
-          {/* Rectangle Zone */}
-          <button
-            onClick={() => setActiveDrawingTool('rectangle')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'rectangle' ? 'bg-primary text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Zona / To'rtburchak (Supply & Demand)"
-          >
-            <Square className="size-4" />
-          </button>
-
-          {/* Ruler / Measure */}
-          <button
-            onClick={() => {
-              setActiveDrawingTool('ruler');
-              toast.info("O'lchov vositasi: Grafikda pips va foiz farqini aniqlang");
-            }}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              activeDrawingTool === 'ruler' ? 'bg-primary text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="O'lchagich (Ruler - Pips & %)"
-          >
-            <Ruler className="size-4" />
-          </button>
-
-          <div className="w-6 h-px bg-white/10 my-1" />
-
-          {/* Magnet Snapping */}
-          <button
-            onClick={() => {
-              setMagnetMode(!magnetMode);
-              toast.info(magnetMode ? "Magnit rejimi o'chirildi" : "Magnit rejimi yoqildi (Sham uchlariga bog'lanadi)");
-            }}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              magnetMode ? 'bg-[#ffde00] text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Magnit rejimi"
-          >
-            <Zap className="size-4" />
-          </button>
-
-          {/* Toggle Drawings Visibility */}
-          <button
-            onClick={() => setDrawingsVisible(!drawingsVisible)}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-            title={drawingsVisible ? "Chizmalarni yashirish" : "Chizmalarni ko'rsatish"}
-          >
-            {drawingsVisible ? <Eye className="size-4" /> : <EyeOff className="size-4 text-rose-400" />}
-          </button>
-
-          {/* Clear Drawings */}
-          <button
-            onClick={() => {
-              if (drawings.length > 0) {
-                setDrawings([]);
-                toast.info("Barcha chizmalar tozalandi");
-              }
-            }}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-rose-400 hover:bg-white/5 transition-all mt-auto"
-            title="Barcha chizmalarni o'chirish"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </aside>
-
-        {/* --------------------------------------------------------------------- */}
-        {/* B. CENTER CHART AREA: TradingView Real-Time Chart or Canvas Chart     */}
-        {/* --------------------------------------------------------------------- */}
-        <main className={`flex-1 flex flex-col min-w-0 bg-[#0a0d0b] relative overflow-hidden ${
-          mobileTerminalTab !== 'chart' ? 'hidden lg:flex' : 'flex'
+        <main className={`flex-1 flex-col min-w-0 bg-[#0a0d0b] relative overflow-hidden ${
+          mobileViewTab === 'chart' ? 'flex w-full h-full' : 'hidden lg:flex'
         }`}>
-          {chartEngine === 'tradingview' ? (
-            <TradingViewChart
-              symbol={selectedSymbol.symbol}
-              interval={timeframe}
-              className="flex-1 w-full h-full"
-            />
-          ) : (
-            <>
-              {/* Chart Header Bar: Asset Info + Timeframes + Chart Type + Indicators */}
-              <div className="h-11 border-b border-white/10 px-3 flex items-center justify-between gap-3 bg-[#111613] shrink-0 text-xs">
-                {/* Symbol Title & Live Spread */}
-                <div className="flex items-center gap-3">
-                  <span className="font-extrabold text-sm text-white tracking-wide">{selectedSymbol.symbol}</span>
-                  <span className="text-[11px] text-gray-400 hidden sm:inline">{selectedSymbol.name}</span>
-                  <span className="text-[11px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
-                    Spred: <strong className="text-primary">{selectedSymbol.spread}</strong> pips
-                  </span>
-                </div>
+          {/* Chart Header Bar: Asset Info + Engine Switcher (Exness Pro vs TradingView) + Timeframes + Chart Type + Indicators */}
+          <div className="h-11 border-b border-white/10 px-3 flex items-center justify-between gap-2 bg-[#111613] shrink-0 text-xs z-10">
+            {/* Left: Symbol Title & Live Spread */}
+            <div className="flex items-center gap-2.5">
+              <span className="font-extrabold text-sm text-white tracking-wide">{selectedSymbol.symbol}</span>
+              <span className="text-[11px] text-gray-400 hidden sm:inline">{selectedSymbol.name}</span>
+              <span className="text-[11px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                Spred: <strong className="text-primary">{selectedSymbol.spread}</strong> pips
+              </span>
+            </div>
 
-                {/* Timeframe Selector Buttons */}
-                <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10">
-                  {(['1m', '5m', '15m', '1h', '4h', '1D', '1W'] as TimeFrame[]).map(tf => (
-                    <button
-                      key={tf}
-                      onClick={() => setTimeframe(tf)}
-                      className={`px-2 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
-                        timeframe === tf ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      {tf}
-                    </button>
-                  ))}
-                </div>
+            {/* Middle: Engine Switcher (Exness Pro vs TradingView) */}
+            <div className="flex items-center bg-black/60 p-0.5 rounded-lg border border-white/15 text-xs">
+              <button
+                onClick={() => setChartEngine('canvas')}
+                className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  chartEngine === 'canvas' 
+                    ? 'bg-primary text-black font-extrabold shadow-sm' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Exness uslubidagi gorizontal bitim chiziqlari va jonli PnL"
+              >
+                <Zap className="size-3.5" />
+                <span>Exness Pro</span>
+              </button>
+              <button
+                onClick={() => setChartEngine('tradingview')}
+                className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  chartEngine === 'tradingview' 
+                    ? 'bg-primary text-black font-extrabold shadow-sm' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <span>TradingView</span>
+              </button>
+            </div>
 
-                {/* Chart Type (Candles, Line, Area) & Indicators Menu */}
-                <div className="flex items-center gap-2">
+            {/* Right: Timeframe Selector & Chart Mode */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10">
+                {(['1m', '5m', '15m', '1h', '4h', '1D'] as TimeFrame[]).map(tf => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                      timeframe === tf ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+
+              {chartEngine === 'canvas' && (
+                <>
                   <div className="flex items-center bg-white/5 p-0.5 rounded-lg border border-white/10 text-[11px]">
                     <button
                       onClick={() => setChartMode('candles')}
-                      className={`px-2 py-1 rounded-md font-semibold transition-all ${
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
                         chartMode === 'candles' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-white'
                       }`}
                     >
@@ -1174,38 +1065,28 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                     </button>
                     <button
                       onClick={() => setChartMode('line')}
-                      className={`px-2 py-1 rounded-md font-semibold transition-all ${
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
                         chartMode === 'line' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-white'
                       }`}
                     >
                       Chiziq
                     </button>
-                    <button
-                      onClick={() => setChartMode('area')}
-                      className={`px-2 py-1 rounded-md font-semibold transition-all ${
-                        chartMode === 'area' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Soha
-                    </button>
                   </div>
 
-                  {/* Indicators Dropdown (FX Menu) */}
+                  {/* Indicators Dropdown */}
                   <div className="relative">
                     <button
                       onClick={() => setIndicatorsOpen(!indicatorsOpen)}
-                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-xs flex items-center gap-1 border border-white/10"
+                      className="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-xs flex items-center gap-1 border border-white/10 cursor-pointer"
                     >
                       <Activity className="size-3.5 text-primary" />
                       <span>Indikatorlar</span>
                     </button>
-
                     {indicatorsOpen && (
                       <div className="absolute right-0 mt-1 w-56 rounded-xl bg-[#141916] border border-white/10 p-3 shadow-2xl z-50 flex flex-col gap-2">
                         <div className="text-[11px] font-bold text-white border-b border-white/10 pb-1.5">
                           Texnik Ko'rsatkichlar
                         </div>
-
                         <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
                           <span>SMA 20 (Moving Average)</span>
                           <input 
@@ -1215,7 +1096,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                             className="rounded accent-primary"
                           />
                         </label>
-
                         <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
                           <span>EMA 50 (Exponential)</span>
                           <input 
@@ -1225,7 +1105,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                             className="rounded accent-amber-400"
                           />
                         </label>
-
                         <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
                           <span>Hajmlar (Volume)</span>
                           <input 
@@ -1235,7 +1114,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                             className="rounded accent-primary"
                           />
                         </label>
-
                         <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
                           <span>RSI 14 (Momentum)</span>
                           <input 
@@ -1248,114 +1126,82 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Interactive HTML5 Canvas Container */}
-              <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[#0a0d0b]">
-                <canvas
-                  ref={canvasRef}
-                  width={1000}
-                  height={500}
-                  onClick={handleCanvasClick}
-                  onMouseMove={handleCanvasMouseMove}
-                  onMouseLeave={() => setMousePos(null)}
-                  className="w-full h-full cursor-crosshair block"
-                />
-
-                {/* Quick Price Overlay Top-Left */}
-                <div className="absolute top-3 left-3 bg-[#111613]/90 border border-white/10 backdrop-blur-md rounded-xl p-2.5 text-xs font-mono pointer-events-none flex items-center gap-4">
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">BID:</span>
-                    <span className="font-bold text-white text-sm">{selectedSymbol.bid.toFixed(selectedSymbol.digitPrecision)}</span>
-                  </div>
-                  <div className="h-6 w-px bg-white/10" />
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">ASK:</span>
-                    <span className="font-bold text-primary text-sm">{selectedSymbol.ask.toFixed(selectedSymbol.digitPrecision)}</span>
-                  </div>
-                  <div className="h-6 w-px bg-white/10" />
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">24s O'zgarish:</span>
-                    <span className={`font-bold ${selectedSymbol.change24h >= 0 ? 'text-primary' : 'text-rose-400'}`}>
-                      {selectedSymbol.change24h >= 0 ? '+' : ''}{selectedSymbol.change24h}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* FLOATING QUICK TRADE BAR OVER CHART */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2 bg-[#111613]/90 backdrop-blur-md border border-white/15 px-3 py-2 rounded-2xl shadow-2xl max-w-[94vw]">
-            {/* Quick SELL */}
-            <button
-              onClick={() => {
-                setOrderSide('sell');
-                if (oneClickTrading) {
-                  handleOneClickOrder('sell');
-                } else {
-                  setMobileTerminalTab('order');
-                  setRightPanelTab('order');
-                }
-              }}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 active:scale-95 transition-all font-mono font-bold text-xs cursor-pointer"
-            >
-              <TrendingDown className="size-3.5 sm:size-4" />
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] uppercase font-sans text-rose-300">SELL</span>
-                <span className="text-xs sm:text-sm font-black">{selectedSymbol.bid.toFixed(selectedSymbol.digitPrecision)}</span>
-              </div>
-            </button>
-
-            {/* Quick Lot Selector */}
-            <div className="flex items-center bg-black/60 px-2 py-1.5 rounded-xl border border-white/10 text-xs font-mono font-bold gap-1 sm:gap-1.5">
-              <button 
-                onClick={() => setLotSize(prev => Math.max(0.01, Number((prev - 0.05).toFixed(2))))}
-                className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-sans text-xs sm:text-sm cursor-pointer"
-              >
-                -
-              </button>
-              <span className="min-w-10 sm:min-w-12 text-center text-white font-bold">{lotSize.toFixed(2)}</span>
-              <button 
-                onClick={() => setLotSize(prev => Number((prev + 0.05).toFixed(2)))}
-                className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-sans text-xs sm:text-sm cursor-pointer"
-              >
-                +
-              </button>
+                </>
+              )}
             </div>
-
-            {/* Quick BUY */}
-            <button
-              onClick={() => {
-                setOrderSide('buy');
-                if (oneClickTrading) {
-                  handleOneClickOrder('buy');
-                } else {
-                  setMobileTerminalTab('order');
-                  setRightPanelTab('order');
-                }
-              }}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 active:scale-95 transition-all font-mono font-bold text-xs cursor-pointer"
-            >
-              <div className="flex flex-col text-right">
-                <span className="text-[9px] uppercase font-sans text-emerald-300">BUY</span>
-                <span className="text-xs sm:text-sm font-black">{selectedSymbol.ask.toFixed(selectedSymbol.digitPrecision)}</span>
-              </div>
-              <TrendingUp className="size-3.5 sm:size-4" />
-            </button>
           </div>
+
+          {/* Chart Viewport */}
+          {chartEngine === 'tradingview' ? (
+            <TradingViewChart
+              symbol={selectedSymbol.symbol}
+              interval={timeframe}
+              positions={userOpenPositions}
+              currentBid={selectedSymbol.bid}
+              currentAsk={selectedSymbol.ask}
+              onClosePosition={(id) => {
+                const pos = userOpenPositions.find(p => p.id === id);
+                brokerStore.closePosition(id);
+                toast.success(`Bitim #${id.slice(-6)} yopildi! PnL: ${pos && pos.pnl >= 0 ? '+' : ''}$${pos?.pnl.toFixed(2) || '0.00'}`);
+              }}
+              onUpdateSlTp={(id, sl, tp) => {
+                brokerStore.updatePositionSlTp(id, sl, tp);
+                toast.success("SL / TP yangilandi!");
+              }}
+              className="flex-1 w-full h-full"
+              onSymbolChange={(symName) => {
+                const found = symbols.find(s => s.symbol.replace(/[\/\-_]/g, '').toUpperCase() === symName.replace(/[\/\-_]/g, '').toUpperCase());
+                if (found) handleSelectSymbol(found);
+              }}
+              onQuickTrade={(side) => {
+                setOrderSide(side);
+                handleExecuteOrder();
+              }}
+            />
+          ) : (
+            <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[#0a0d0b]">
+              <canvas
+                ref={canvasRef}
+                width={1000}
+                height={500}
+                onClick={handleCanvasClick}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={() => setMousePos(null)}
+                className="w-full h-full cursor-crosshair block"
+              />
+
+              {/* Quick Price Overlay Top-Left */}
+              <div className="absolute top-3 left-3 bg-[#111613]/90 border border-white/10 backdrop-blur-md rounded-xl p-2.5 text-xs font-mono pointer-events-none flex items-center gap-4">
+                <div>
+                  <span className="text-[10px] text-gray-400 block">BID:</span>
+                  <span className="font-bold text-white text-sm">{selectedSymbol.bid.toFixed(selectedSymbol.digitPrecision)}</span>
+                </div>
+                <div className="h-6 w-px bg-white/10" />
+                <div>
+                  <span className="text-[10px] text-gray-400 block">ASK:</span>
+                  <span className="font-bold text-primary text-sm">{selectedSymbol.ask.toFixed(selectedSymbol.digitPrecision)}</span>
+                </div>
+                <div className="h-6 w-px bg-white/10" />
+                <div>
+                  <span className="text-[10px] text-gray-400 block">24s O'zgarish:</span>
+                  <span className={`font-bold ${selectedSymbol.change24h >= 0 ? 'text-primary' : 'text-rose-400'}`}>
+                    {selectedSymbol.change24h >= 0 ? '+' : ''}{selectedSymbol.change24h}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
         {/* --------------------------------------------------------------------- */}
         {/* C. RIGHT ORDER EXECUTION & ANALYTICS SIDEBAR                          */}
         {/* --------------------------------------------------------------------- */}
-        <aside className={`${
-          mobileTerminalTab === 'order' || mobileTerminalTab === 'dom' || mobileTerminalTab === 'analytics'
-            ? 'flex flex-1 w-full'
-            : 'hidden lg:flex w-80 xl:w-96'
-        } bg-[#111613] border-l border-white/10 flex-col shrink-0 overflow-y-auto`}>
-          {/* Header Switcher: Order Execution vs Order Book DOM vs Economic Calendar */}
+        <aside className={`bg-[#111613] border-l border-white/10 flex-col shrink-0 ${
+          mobileViewTab === 'order' || mobileViewTab === 'dom' || mobileViewTab === 'positions'
+            ? 'flex flex-1 w-full h-full'
+            : 'hidden lg:flex w-80 lg:w-96'
+        }`}>
+          {/* Header Switcher: Order Execution vs Order Book DOM vs Positions vs Calendar */}
           <div className="h-11 border-b border-white/10 flex items-center px-2 bg-[#141916] text-xs font-bold gap-1">
             <button
               onClick={() => setRightPanelTab('order')}
@@ -1373,7 +1219,16 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
               }`}
             >
               <Layers className="size-3.5" />
-              <span>Order Book</span>
+              <span>DOM</span>
+            </button>
+            <button
+              onClick={() => setRightPanelTab('positions')}
+              className={`flex-1 py-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
+                rightPanelTab === 'positions' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <BarChart2 className="size-3.5" />
+              <span>Bitimlar ({userOpenPositions.length})</span>
             </button>
             <button
               onClick={() => setRightPanelTab('analytics')}
@@ -1695,298 +1550,203 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
               </div>
             </div>
           )}
-        </aside>
-      </div>
 
-      {/* ========================================================================= */}
-      {/* 3. LOWER PORTFOLIO & MARGINS DOCK: Active Positions, Pending, History      */}
-      {/* ========================================================================= */}
-      <footer className={`${
-        mobileTerminalTab === 'positions'
-          ? 'flex flex-1 w-full min-h-[50vh]'
-          : `hidden lg:flex ${bottomDockCollapsed ? 'h-10' : 'h-56'}`
-      } border-t border-white/10 bg-[#0e120f] flex-col shrink-0 transition-all duration-200`}>
-        {/* Navigation Tabs Bar + Metrics Ribbon + Close All Button */}
-        <div className="h-10 border-b border-white/10 px-3 flex items-center justify-between gap-4 bg-[#111613] text-xs">
-          {/* Tabs */}
-          <div className="flex items-center gap-2">
-            {/* Collapse/Expand Toggle Button */}
-            <button
-              onClick={() => setBottomDockCollapsed(!bottomDockCollapsed)}
-              className="hidden lg:flex w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white items-center justify-center transition-colors cursor-pointer"
-              title={bottomDockCollapsed ? "Pozitsiyalar panelini ochish" : "Yashirish"}
-            >
-              {bottomDockCollapsed ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-            </button>
-            <button
-              onClick={() => setBottomTab('positions')}
-              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-                bottomTab === 'positions' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>Ochiq Pozitsiyalar</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">
-                {userOpenPositions.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setBottomTab('pending')}
-              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-                bottomTab === 'pending' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>Kechiktirilgan</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">
-                {userPendingOrders.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setBottomTab('history')}
-              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-                bottomTab === 'history' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>Savdolar Tarixi</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">
-                {userClosedPositions.length}
-              </span>
-            </button>
-          </div>
-
-          {/* Financial Ribbon Summary */}
-          <div className="flex items-center gap-4 font-mono text-[11px]">
-            <div>
-              <span className="text-gray-400">Ekvit: </span>
-              <strong className="text-white">${selectedAccount?.equity.toFixed(2)}</strong>
-            </div>
-            <div>
-              <span className="text-gray-400">Band Marja: </span>
-              <strong className="text-white">${selectedAccount?.margin.toFixed(2)}</strong>
-            </div>
-            <div>
-              <span className="text-gray-400">Erkin Marja: </span>
-              <strong className="text-white">${selectedAccount?.freeMargin.toFixed(2)}</strong>
-            </div>
-            <div>
-              <span className="text-gray-400">Marja Darajasi: </span>
-              <strong className="text-white">
-                {selectedAccount && selectedAccount.marginLevel > 0 ? `${selectedAccount.marginLevel}%` : '∞'}
-              </strong>
-            </div>
-            <div className="border-l border-white/10 pl-3">
-              <span className="text-gray-400">Jami P&L: </span>
-              <strong className={totalFloatingPnl >= 0 ? 'text-primary' : 'text-rose-400'}>
-                {totalFloatingPnl >= 0 ? '+' : ''}${totalFloatingPnl.toFixed(2)}
-              </strong>
-            </div>
-
-            {/* Close All Emergency Action Button */}
-            {userOpenPositions.length > 0 && (
-              <button
-                onClick={handleCloseAllPositions}
-                className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-extrabold text-[11px] transition-colors border border-rose-500/30 cursor-pointer"
-              >
-                Hammasini Yopish ({userOpenPositions.length})
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Data Table Workspace */}
-        <div className="flex-1 overflow-y-auto px-3 py-1">
-          {bottomTab === 'positions' && (
-            userOpenPositions.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-6 text-gray-500">
-                <BarChart2 className="size-8 stroke-[1.5] mb-1.5 opacity-60 text-primary" />
-                <div className="text-xs font-bold text-gray-400">Hozirda faol ochiq pozitsiyalar mavjud emas</div>
-                <div className="text-[11px] text-gray-500">Yuqoridagi Buy yoki Sell tugmasi orqali yangi bitim ochishingiz mumkin.</div>
+          {/* TAB 4: ACTIVE POSITIONS & TRADES */}
+          {rightPanelTab === 'positions' && (
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+              {/* Financial Metrics Summary Strip */}
+              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono">
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Ekvit</span>
+                  <strong className="text-white">${selectedAccount?.equity.toFixed(2)}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block">Erkin Marja</span>
+                  <strong className="text-white">${selectedAccount?.freeMargin.toFixed(2)}</strong>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400">Jami Suzuvchi P&L:</span>
+                  <strong className={totalFloatingPnl >= 0 ? 'text-primary' : 'text-rose-400'}>
+                    {totalFloatingPnl >= 0 ? '+' : ''}${totalFloatingPnl.toFixed(2)}
+                  </strong>
+                </div>
               </div>
-            ) : (
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="text-gray-400 border-b border-white/10 pb-2 text-[11px]">
-                    <th className="py-1.5">Ticket</th>
-                    <th className="py-1.5">Vaqt</th>
-                    <th className="py-1.5">Simvol</th>
-                    <th className="py-1.5">Turi</th>
-                    <th className="py-1.5">Lot</th>
-                    <th className="py-1.5">Kirish Narxi</th>
-                    <th className="py-1.5">Joriy Narx</th>
-                    <th className="py-1.5">S / L</th>
-                    <th className="py-1.5">T / P</th>
-                    <th className="py-1.5">Swap</th>
-                    <th className="py-1.5">Suzuvchi P&L</th>
-                    <th className="py-1.5 text-right">Amallar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {userOpenPositions.map(pos => {
-                    const isProfit = pos.pnl >= 0;
-                    return (
-                      <tr key={pos.id} className="hover:bg-white/[0.03] transition-colors">
-                        <td className="py-2 text-gray-400 font-bold">#{pos.id.slice(-6)}</td>
-                        <td className="py-2 text-gray-400">{new Date(pos.openedAt).toLocaleTimeString()}</td>
-                        <td className="py-2 font-black text-white">{pos.symbol}</td>
-                        <td className="py-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black ${
-                            pos.side === 'buy' ? 'bg-primary/20 text-primary' : 'bg-rose-500/20 text-rose-400'
-                          }`}>
-                            {pos.side}
-                          </span>
-                        </td>
-                        <td className="py-2 font-bold text-white">{pos.lotSize.toFixed(2)}</td>
-                        <td className="py-2 text-white">{pos.openPrice}</td>
-                        <td className="py-2 font-bold text-white">{pos.currentPrice}</td>
-                        <td className="py-2 text-gray-400">{pos.sl || '-'}</td>
-                        <td className="py-2 text-gray-400">{pos.tp || '-'}</td>
-                        <td className="py-2 text-gray-400">${pos.swap.toFixed(2)}</td>
-                        <td className={`py-2 font-black text-sm ${isProfit ? 'text-primary' : 'text-rose-400'}`}>
-                          {isProfit ? '+' : ''}${pos.pnl.toFixed(2)}
-                        </td>
-                        <td className="py-2 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Edit SL/TP */}
+
+              {/* Sub-tabs: Positions vs Pending vs History */}
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 text-[11px]">
+                <button
+                  onClick={() => setBottomTab('positions')}
+                  className={`flex-1 py-1 rounded-lg font-bold transition-all text-center cursor-pointer ${
+                    bottomTab === 'positions' ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Ochiq ({userOpenPositions.length})
+                </button>
+                <button
+                  onClick={() => setBottomTab('pending')}
+                  className={`flex-1 py-1 rounded-lg font-bold transition-all text-center cursor-pointer ${
+                    bottomTab === 'pending' ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Kutilayotgan ({userPendingOrders.length})
+                </button>
+                <button
+                  onClick={() => setBottomTab('history')}
+                  className={`flex-1 py-1 rounded-lg font-bold transition-all text-center cursor-pointer ${
+                    bottomTab === 'history' ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Tarix ({userClosedPositions.length})
+                </button>
+              </div>
+
+              {/* Emergency Close All Button */}
+              {bottomTab === 'positions' && userOpenPositions.length > 0 && (
+                <button
+                  onClick={handleCloseAllPositions}
+                  className="w-full py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-extrabold text-xs transition-colors border border-rose-500/30 cursor-pointer"
+                >
+                  Barcha Bitimlarni Yopish ({userOpenPositions.length})
+                </button>
+              )}
+
+              {/* List of Items */}
+              {bottomTab === 'positions' && (
+                userOpenPositions.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center py-8 text-gray-500">
+                    <BarChart2 className="size-8 stroke-[1.5] mb-2 opacity-60 text-primary" />
+                    <div className="text-xs font-bold text-gray-300">Faol bitimlar yo'q</div>
+                    <div className="text-[10px] text-gray-500 mt-1">Buyurtma bo'limidan yangi savdo ochishingiz mumkin</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {userOpenPositions.map(pos => {
+                      const isProfit = pos.pnl >= 0;
+                      return (
+                        <div key={pos.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all font-mono text-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-white">{pos.symbol}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-black ${
+                                pos.side === 'buy' ? 'bg-primary/20 text-primary' : 'bg-rose-500/20 text-rose-400'
+                              }`}>
+                                {pos.side} {pos.lotSize.toFixed(2)}
+                              </span>
+                            </div>
+                            <span className={`font-black ${isProfit ? 'text-primary' : 'text-rose-400'}`}>
+                              {isProfit ? '+' : ''}${pos.pnl.toFixed(2)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 mt-2">
+                            <span>Kirish: <strong className="text-white">{pos.openPrice}</strong></span>
+                            <span>Joriy: <strong className="text-white">{pos.currentPrice}</strong></span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-gray-500 mt-1 pt-1 border-t border-white/5">
+                            <span>SL: {pos.sl || '-'} / TP: {pos.tp || '-'}</span>
+                            <span>Swap: ${pos.swap.toFixed(2)}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-white/5">
                             <button
                               onClick={() => {
                                 setEditPositionModal(pos);
                                 setEditSlValue(pos.sl ? pos.sl.toString() : '');
                                 setEditTpValue(pos.tp ? pos.tp.toString() : '');
                               }}
-                              className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-[10px] font-bold"
-                              title="SL/TP tahrirlash"
+                              className="flex-1 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-bold cursor-pointer"
                             >
                               SL/TP
                             </button>
-
-                            {/* Partial Close */}
                             <button
                               onClick={() => {
                                 setPartialCloseModal(pos);
                                 setPartialLotSize(Number((pos.lotSize / 2).toFixed(2)) || 0.01);
                               }}
-                              className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-amber-300 text-[10px] font-bold"
-                              title="Qisman yopish"
+                              className="flex-1 py-1 rounded bg-white/5 hover:bg-white/10 text-amber-300 text-[11px] font-bold cursor-pointer"
                             >
                               Qisman
                             </button>
-
-                            {/* Full Close */}
                             <button
                               onClick={() => handleClosePosition(pos.id)}
-                              className="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 text-[10px] font-black transition-all"
+                              className="flex-1 py-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 text-[11px] font-black cursor-pointer"
                             >
                               Yopish (X)
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )
-          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
 
-          {bottomTab === 'pending' && (
-            userPendingOrders.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-6 text-gray-500">
-                <Clock className="size-8 stroke-[1.5] mb-1.5 opacity-60 text-amber-400" />
-                <div className="text-xs font-bold text-gray-400">Kechiktirilgan buyurtmalar yo'q</div>
-              </div>
-            ) : (
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="text-gray-400 border-b border-white/10 pb-2 text-[11px]">
-                    <th className="py-1.5">Order ID</th>
-                    <th className="py-1.5">Aktiv</th>
-                    <th className="py-1.5">Turi</th>
-                    <th className="py-1.5">Lot</th>
-                    <th className="py-1.5">Maqsad Narxi</th>
-                    <th className="py-1.5">Joriy Narx</th>
-                    <th className="py-1.5">S / L</th>
-                    <th className="py-1.5">T / P</th>
-                    <th className="py-1.5 text-right">Bekor Qilish</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {userPendingOrders.map(order => (
-                    <tr key={order.id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="py-2 text-gray-400 font-bold">#{order.id.slice(-6)}</td>
-                      <td className="py-2 font-black text-white">{order.symbol}</td>
-                      <td className="py-2 font-bold uppercase text-amber-300">{order.type.replace('_', ' ')}</td>
-                      <td className="py-2 font-bold text-white">{order.lotSize}</td>
-                      <td className="py-2 font-bold text-primary">{order.targetPrice}</td>
-                      <td className="py-2 text-white">{order.currentPrice}</td>
-                      <td className="py-2 text-gray-400">{order.sl || '-'}</td>
-                      <td className="py-2 text-gray-400">{order.tp || '-'}</td>
-                      <td className="py-2 text-right">
+              {bottomTab === 'pending' && (
+                userPendingOrders.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center py-8 text-gray-500">
+                    <Clock className="size-8 stroke-[1.5] mb-2 opacity-60 text-amber-400" />
+                    <div className="text-xs font-bold text-gray-300">Kechiktirilgan buyurtmalar yo'q</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {userPendingOrders.map(order => (
+                      <div key={order.id} className="p-3 rounded-xl bg-white/5 border border-white/5 font-mono text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-white">{order.symbol}</span>
+                          <span className="text-amber-300 uppercase font-bold text-[10px]">{order.type.replace('_', ' ')}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
+                          <span>Maqsad: <strong className="text-primary">{order.targetPrice}</strong></span>
+                          <span>Lot: {order.lotSize}</span>
+                        </div>
                         <button
                           onClick={() => {
                             brokerStore.cancelPendingOrder(order.id);
                             toast.info(`Buyurtma #${order.id.slice(-6)} bekor qilindi`);
                           }}
-                          className="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 text-[10px] font-bold"
+                          className="w-full mt-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold cursor-pointer"
                         >
                           Bekor qilish
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )
-          )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
 
-          {bottomTab === 'history' && (
-            userClosedPositions.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-6 text-gray-500">
-                <CheckCircle className="size-8 stroke-[1.5] mb-1.5 opacity-60 text-primary" />
-                <div className="text-xs font-bold text-gray-400">Yopilgan savdolar tarixi bo'sh</div>
-              </div>
-            ) : (
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="text-gray-400 border-b border-white/10 pb-2 text-[11px]">
-                    <th className="py-1.5">Ticket</th>
-                    <th className="py-1.5">Aktiv</th>
-                    <th className="py-1.5">Turi</th>
-                    <th className="py-1.5">Lot</th>
-                    <th className="py-1.5">Kirish</th>
-                    <th className="py-1.5">Yopilish</th>
-                    <th className="py-1.5">Komissiya</th>
-                    <th className="py-1.5">Yakuniy Foyda / Zarar</th>
-                    <th className="py-1.5 text-right">Yopilgan Vaqti</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {userClosedPositions.map(pos => {
-                    const isProfit = pos.pnl >= 0;
-                    return (
-                      <tr key={pos.id} className="hover:bg-white/[0.03] transition-colors">
-                        <td className="py-2 text-gray-400 font-bold">#{pos.id.slice(-6)}</td>
-                        <td className="py-2 font-black text-white">{pos.symbol}</td>
-                        <td className="py-2 font-bold uppercase">{pos.side}</td>
-                        <td className="py-2 text-white">{pos.lotSize}</td>
-                        <td className="py-2 text-white">{pos.openPrice}</td>
-                        <td className="py-2 text-white">{pos.closePrice || pos.currentPrice}</td>
-                        <td className="py-2 text-gray-400">${pos.commission?.toFixed(2) || '0.00'}</td>
-                        <td className={`py-2 font-black ${isProfit ? 'text-primary' : 'text-rose-400'}`}>
-                          {isProfit ? '+' : ''}${pos.pnl.toFixed(2)}
-                        </td>
-                        <td className="py-2 text-right text-gray-400">
-                          {pos.closedAt ? new Date(pos.closedAt).toLocaleTimeString() : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )
+              {bottomTab === 'history' && (
+                userClosedPositions.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center py-8 text-gray-500">
+                    <CheckCircle className="size-8 stroke-[1.5] mb-2 opacity-60 text-primary" />
+                    <div className="text-xs font-bold text-gray-300">Yopilgan savdolar tarixi bo'sh</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {userClosedPositions.map(pos => {
+                      const isProfit = pos.pnl >= 0;
+                      return (
+                        <div key={pos.id} className="p-2.5 rounded-xl bg-white/5 border border-white/5 font-mono text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white">{pos.symbol} ({pos.side})</span>
+                            <span className={`font-black ${isProfit ? 'text-primary' : 'text-rose-400'}`}>
+                              {isProfit ? '+' : ''}${pos.pnl.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
+                            <span>Lot: {pos.lotSize} &bull; {pos.openPrice} &rarr; {pos.closePrice || pos.currentPrice}</span>
+                            <span>{pos.closedAt ? new Date(pos.closedAt).toLocaleTimeString() : ''}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+            </div>
           )}
-        </div>
-      </footer>
+        </aside>
+      </div>
 
       {/* ========================================================================= */}
       {/* 4. MODALS: Edit SL/TP Modal & Partial Close Modal                         */}
@@ -2108,121 +1868,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                   Qisman Yopish
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SYMBOL SEARCH & SELECTION MODAL */}
-      {showSymbolSearchModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-[#141815] border border-white/10 rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Globe2 className="size-5 text-primary" />
-                <h3 className="font-extrabold text-white text-base">Savdo Aktivini Tanlang</h3>
-              </div>
-              <button
-                onClick={() => setShowSymbolSearchModal(false)}
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white cursor-pointer"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="p-4 border-b border-white/10 space-y-3">
-              <div className="relative">
-                <Search className="size-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Qidiruv: XAUUSD, EURUSD, BTC, US30..."
-                  value={symbolSearchQuery}
-                  onChange={(e) => setSymbolSearchQuery(e.target.value)}
-                  autoFocus
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm text-white outline-none focus:border-primary placeholder:text-gray-500"
-                />
-              </div>
-
-              {/* Categories */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-                {[
-                  { id: 'all', label: 'Barchasi' },
-                  { id: 'forex', label: 'Forex' },
-                  { id: 'commodities', label: 'Metals & Gold' },
-                  { id: 'crypto', label: 'Crypto' },
-                  { id: 'indices', label: 'Indekslar' }
-                ].map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSymbolCategoryFilter(c.id)}
-                    className={`px-3 py-1 rounded-lg font-bold text-xs whitespace-nowrap transition-all cursor-pointer ${
-                      symbolCategoryFilter === c.id 
-                        ? 'bg-primary text-black' 
-                        : 'bg-white/5 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Symbols List */}
-            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1 divide-y divide-white/5">
-              {symbols
-                .filter(sym => {
-                  const matchesCat = symbolCategoryFilter === 'all' || sym.category === symbolCategoryFilter;
-                  const matchesQuery = sym.symbol.toLowerCase().includes(symbolSearchQuery.toLowerCase()) || 
-                                       sym.name.toLowerCase().includes(symbolSearchQuery.toLowerCase());
-                  return matchesCat && matchesQuery;
-                })
-                .map((sym) => {
-                  const isSelected = selectedSymbol.symbol === sym.symbol;
-                  return (
-                    <div
-                      key={sym.symbol}
-                      onClick={() => {
-                        handleSelectSymbol(sym);
-                        setShowSymbolSearchModal(false);
-                        toast.success(`${sym.symbol} faol grafik sifatida tanlandi!`);
-                      }}
-                      className={`p-3 rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
-                        isSelected 
-                          ? 'bg-primary/15 border border-primary/30' 
-                          : 'hover:bg-white/5 border border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center font-bold text-xs text-white">
-                          {sym.symbol.slice(0, 3)}
-                        </div>
-                        <div>
-                          <div className="font-extrabold text-sm text-white flex items-center gap-2">
-                            <span>{sym.symbol}</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded uppercase bg-white/10 text-gray-400 font-mono">
-                              {sym.category}
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-400 line-clamp-1">{sym.name}</div>
-                        </div>
-                      </div>
-
-                      <div className="text-right font-mono">
-                        <div className="font-bold text-white text-xs sm:text-sm">
-                          ${sym.bid.toFixed(sym.digitPrecision)}
-                        </div>
-                        <div className="flex items-center justify-end gap-2 text-[11px]">
-                          <span className="text-gray-400">Spred: {sym.spread}</span>
-                          <span className={`font-bold ${sym.change24h >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {sym.change24h >= 0 ? '+' : ''}{sym.change24h}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
             </div>
           </div>
         </div>

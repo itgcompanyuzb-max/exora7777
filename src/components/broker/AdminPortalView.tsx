@@ -19,7 +19,7 @@ import {
   TrendingUp,
   Download,
   Building
-} from "../icons/FlaticonIcons";
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface AdminPortalViewProps {

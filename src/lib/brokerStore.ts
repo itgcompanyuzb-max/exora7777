@@ -16,6 +16,25 @@ import {
 } from '../types/broker';
 
 // INITIAL FOREX AND MULTI-ASSET RATES WITH SPREADS (Matching screenshot tabs)
+export function getContractMultiplier(symbol: string): number {
+  if (!symbol) return 100000;
+  const s = symbol.toUpperCase().replace(/[\s\/-]/g, '');
+  if (s.startsWith('BTC') || s.startsWith('ETH') || s.startsWith('SOL') || s.includes('USDT') || s.startsWith('XRP')) {
+    return 1; // 1 crypto coin per lot
+  }
+  if (s.includes('XAU') || s.includes('GOLD')) {
+    return 100; // 100 troy ounces per lot
+  }
+  if (s.includes('XAG') || s.includes('SILVER')) {
+    return 5000; // 5000 troy ounces per lot
+  }
+  if (s.includes('US30') || s.includes('NAS100') || s.includes('SPX500')) {
+    return 1;
+  }
+  // Standard Forex lot = 100,000 base currency units
+  return 100000;
+}
+
 export const INITIAL_SYMBOLS: ForexSymbolRate[] = [
   { symbol: 'BTC', name: 'Bitcoin vs US Dollar', category: 'crypto', bid: 79719.47, ask: 79729.47, spread: 10.0, change24h: -0.01, high24h: 79737.27, low24h: 79714.65, digitPrecision: 2 },
   { symbol: 'ETH', name: 'Ethereum vs US Dollar', category: 'crypto', bid: 3140.25, ask: 3141.55, spread: 1.3, change24h: 1.15, high24h: 3185.00, low24h: 3110.00, digitPrecision: 2 },
@@ -385,6 +404,38 @@ const DEFAULT_ACCOUNTS: TradingAccount[] = [
 
 const DEFAULT_POSITIONS: Position[] = [
   {
+    id: 'pos_live_btc_01',
+    accountId: 'acc_3201288',
+    symbol: 'BTC',
+    side: 'buy',
+    lotSize: 0.10,
+    openPrice: 83050.00,
+    currentPrice: 83074.00,
+    sl: 82500.00,
+    tp: 84500.00,
+    pnl: 2.40,
+    swap: 0,
+    commission: 0,
+    openedAt: '2026-09-29T10:00:00Z',
+    status: 'open',
+  },
+  {
+    id: 'pos_live_xau_01',
+    accountId: 'acc_3201288',
+    symbol: 'XAU/USD',
+    side: 'buy',
+    lotSize: 0.05,
+    openPrice: 2682.00,
+    currentPrice: 2685.50,
+    sl: 2670.00,
+    tp: 2700.00,
+    pnl: 17.50,
+    swap: -0.50,
+    commission: 0,
+    openedAt: '2026-09-29T10:00:00Z',
+    status: 'open',
+  },
+  {
     id: 'pos_hist_01',
     accountId: 'acc_3201288',
     symbol: 'EUR/USD',
@@ -604,9 +655,10 @@ class BrokerStoreManager {
       setStored('accounts', this.accounts);
     }
 
-    // Set positions to default (0 open positions as requested, 3 closed history for Savdolar Tarixi)
+    // Set positions to default with active BTC and XAU/USD open trades
     this.positions = DEFAULT_POSITIONS;
     setStored('positions', this.positions);
+    this.recalculateAccountsEquity();
 
     // Set active user to AVAZJON
     const avaz = this.users.find(u => u.id === 'usr_avazjon') || DEFAULT_USERS[0];
@@ -648,20 +700,37 @@ class BrokerStoreManager {
       };
     });
 
-    // Recalculate open positions P&L
+    // Recalculate open positions P&L with exact Bid/Ask formula
+    const autoCloseIds: { id: string; reason: string }[] = [];
+
     this.positions = this.positions.map((pos) => {
       if (pos.status !== 'open') return pos;
-      const sym = this.symbols.find((s) => s.symbol === pos.symbol);
+      const sym = this.symbols.find((s) => s.symbol === pos.symbol || s.symbol.replace(/[\s\/-]/g, '') === pos.symbol.replace(/[\s\/-]/g, ''));
       if (!sym) return pos;
 
       const currentPrice = pos.side === 'buy' ? sym.bid : sym.ask;
-      const pointDiff = pos.side === 'buy' ? (currentPrice - pos.openPrice) : (pos.openPrice - currentPrice);
+      // Formula: Buy exits at Bid, Sell exits at Ask
+      const pointDiff = pos.side === 'buy' ? (sym.bid - pos.openPrice) : (pos.openPrice - sym.ask);
       
-      let multiplier = 100000; // Standard 1 lot in forex
-      if (pos.symbol === 'XAU/USD') multiplier = 100;
-      if (pos.symbol === 'BTC/USD' || pos.symbol === 'US30') multiplier = 1;
+      const multiplier = getContractMultiplier(pos.symbol);
+      const calculatedPnl = Number((pointDiff * pos.lotSize * multiplier - (pos.commission || 0) + (pos.swap || 0)).toFixed(2));
 
-      const calculatedPnl = Number((pointDiff * pos.lotSize * multiplier + pos.swap + pos.commission).toFixed(2));
+      // Automated SL / TP hit
+      // Buy: SL hit if Bid <= sl, TP hit if Bid >= tp
+      // Sell: SL hit if Ask >= sl, TP hit if Ask <= tp
+      if (pos.side === 'buy') {
+        if (pos.sl && sym.bid <= pos.sl) {
+          autoCloseIds.push({ id: pos.id, reason: 'Stop-Loss' });
+        } else if (pos.tp && sym.bid >= pos.tp) {
+          autoCloseIds.push({ id: pos.id, reason: 'Take-Profit' });
+        }
+      } else {
+        if (pos.sl && sym.ask >= pos.sl) {
+          autoCloseIds.push({ id: pos.id, reason: 'Stop-Loss' });
+        } else if (pos.tp && sym.ask <= pos.tp) {
+          autoCloseIds.push({ id: pos.id, reason: 'Take-Profit' });
+        }
+      }
 
       return {
         ...pos,
@@ -669,6 +738,51 @@ class BrokerStoreManager {
         pnl: calculatedPnl,
       };
     });
+
+    if (autoCloseIds.length > 0) {
+      autoCloseIds.forEach(item => {
+        this.closePosition(item.id);
+      });
+    }
+
+    // Check Pending Orders Execution (Buy Limit, Sell Limit, Buy Stop, Sell Stop)
+    for (let i = this.pendingOrders.length - 1; i >= 0; i--) {
+      const order = this.pendingOrders[i];
+      if (order.status !== 'active') continue;
+      const sym = this.symbols.find((s) => s.symbol === order.symbol || s.symbol.replace(/[\s\/-]/g, '') === order.symbol.replace(/[\s\/-]/g, ''));
+      if (!sym) continue;
+
+      let triggered = false;
+      let side: 'buy' | 'sell' = 'buy';
+      if (order.type === 'buy_limit' && sym.ask <= order.targetPrice) {
+        triggered = true;
+        side = 'buy';
+      } else if (order.type === 'sell_limit' && sym.bid >= order.targetPrice) {
+        triggered = true;
+        side = 'sell';
+      } else if (order.type === 'buy_stop' && sym.ask >= order.targetPrice) {
+        triggered = true;
+        side = 'buy';
+      } else if (order.type === 'sell_stop' && sym.bid <= order.targetPrice) {
+        triggered = true;
+        side = 'sell';
+      }
+
+      if (triggered) {
+        order.status = 'triggered';
+        this.pendingOrders.splice(i, 1);
+        setStored('pending_orders', this.pendingOrders);
+        this.openPosition({
+          accountId: order.accountId,
+          symbol: order.symbol,
+          side,
+          lotSize: order.lotSize,
+          sl: order.sl,
+          tp: order.tp,
+          comment: `Pending ${order.type.toUpperCase()} executed`
+        });
+      }
+    }
 
     if (changed) {
       this.recalculateAccountsEquity();
@@ -808,33 +922,50 @@ class BrokerStoreManager {
     lotSize: number;
     sl?: number;
     tp?: number;
+    comment?: string;
   }): Position {
-    const sym = this.symbols.find((s) => s.symbol === params.symbol);
+    const sym = this.symbols.find((s) => s.symbol === params.symbol || s.symbol.replace(/[\s\/-]/g, '') === params.symbol.replace(/[\s\/-]/g, ''));
+    // Buy opens at Ask, Sell opens at Bid
     const openPrice = sym ? (params.side === 'buy' ? sym.ask : sym.bid) : 1.08433;
     const account = this.accounts.find((a) => a.id === params.accountId);
     const leverage = account?.leverage || 500;
 
-    // Margin estimation: (lotSize * 100,000 / leverage)
-    let contract = 100000;
-    if (params.symbol === 'XAU/USD') contract = 100;
-    if (params.symbol === 'BTC/USD' || params.symbol === 'US30') contract = 1;
+    // Margin estimation: (lotSize * contractSize * openPrice / leverage)
+    const contract = getContractMultiplier(params.symbol);
     const requiredMargin = Number(((params.lotSize * contract * openPrice) / leverage).toFixed(2));
+
+    // SL/TP validation:
+    // Buy: SL must be < openPrice, TP must be > openPrice
+    // Sell: SL must be > openPrice, TP must be < openPrice
+    let validSl = params.sl;
+    let validTp = params.tp;
+    if (params.side === 'buy') {
+      if (validSl && validSl >= openPrice) validSl = undefined;
+      if (validTp && validTp <= openPrice) validTp = undefined;
+    } else {
+      if (validSl && validSl <= openPrice) validSl = undefined;
+      if (validTp && validTp >= openPrice) validTp = undefined;
+    }
+
+    const ticketNumber = Math.floor(70000000 + Math.random() * 20000000);
 
     const newPosition: Position = {
       id: `pos_${Date.now()}`,
+      ticket: `#${ticketNumber}`,
       accountId: params.accountId,
       symbol: params.symbol,
       side: params.side,
       lotSize: params.lotSize,
       openPrice,
       currentPrice: openPrice,
-      sl: params.sl,
-      tp: params.tp,
+      sl: validSl,
+      tp: validTp,
       commission: account?.accountType === 'ecn' ? Number((params.lotSize * 6).toFixed(2)) : 0,
       swap: 0,
       pnl: 0,
       status: 'open',
       openedAt: new Date().toISOString(),
+      comment: params.comment || `${params.side.toUpperCase()} Market Order`,
     };
 
     if (account) {
@@ -861,9 +992,7 @@ class BrokerStoreManager {
     if (account) {
       account.balance = Number((account.balance + pos.pnl).toFixed(2));
       // Release margin
-      let contract = 100000;
-      if (pos.symbol === 'XAU/USD') contract = 100;
-      if (pos.symbol === 'BTC/USD' || pos.symbol === 'US30') contract = 1;
+      const contract = getContractMultiplier(pos.symbol);
       const marginReleased = (pos.lotSize * contract * pos.openPrice) / (account.leverage || 500);
       account.margin = Math.max(0, Number((account.margin - marginReleased).toFixed(2)));
     }
@@ -912,9 +1041,7 @@ class BrokerStoreManager {
     const account = this.accounts.find(a => a.id === pos.accountId);
     if (account) {
       account.balance = Number((account.balance + partialPnl).toFixed(2));
-      let contract = 100000;
-      if (pos.symbol === 'XAU/USD' || pos.symbol === 'XAU/USD247') contract = 100;
-      if (pos.symbol === 'BTC' || pos.symbol === 'BTC/USD' || pos.symbol === 'BTC/USDT' || pos.symbol === 'US30') contract = 1;
+      const contract = getContractMultiplier(pos.symbol);
       const marginReleased = (closeLot * contract * pos.openPrice) / (account.leverage || 500);
       account.margin = Math.max(0, Number((account.margin - marginReleased).toFixed(2)));
     }

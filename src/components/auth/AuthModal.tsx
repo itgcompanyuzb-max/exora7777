@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { X, Mail, KeyRound, ShieldCheck, Smartphone } from "../icons/FlaticonIcons";
+import { X, Mail, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { GlassButton } from "@/components/site/GlassButton";
 import { sendVerificationCode, sendTelegramVerificationCode } from "@/lib/emailVerification";
