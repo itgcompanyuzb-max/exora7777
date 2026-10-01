@@ -290,42 +290,6 @@ export function TradingViewChart({
           </div>
         </div>
 
-        {/* 2. High-Impact Economic News Bands matching Exness chart */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-15">
-          {/* Shaded Red Vertical Band 1 */}
-          <div className="absolute top-0 bottom-8 left-[38%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1">
-            <div className="w-4 h-4 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center shadow-xs">
-              III
-            </div>
-          </div>
-          {/* Shaded Red Vertical Band 2 */}
-          <div className="absolute top-0 bottom-8 left-[44%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1">
-            <div className="w-4 h-4 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center shadow-xs">
-              III
-            </div>
-          </div>
-          {/* Shaded Red Vertical Band 3 with US Flag */}
-          <div className="absolute top-0 bottom-8 left-[52%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1">
-            <div className="w-4 h-4 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center shadow-xs">
-              III
-            </div>
-          </div>
-          {/* Shaded Red Vertical Band 4 with US Flag */}
-          <div className="absolute top-0 bottom-8 left-[70%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1 gap-0.5">
-            <div className="flex items-center -space-x-1">
-              <div className="w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[7px] font-black flex items-center justify-center">III</div>
-              <div className="w-3.5 h-3.5 rounded-full bg-blue-700 text-white text-[7px] font-black flex items-center justify-center border border-black">🇺🇸</div>
-            </div>
-          </div>
-          {/* Shaded Red Vertical Band 5 */}
-          <div className="absolute top-0 bottom-8 left-[78%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1 gap-0.5">
-            <div className="flex items-center -space-x-1">
-              <div className="w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[7px] font-black flex items-center justify-center">III</div>
-              <div className="w-3.5 h-3.5 rounded-full bg-blue-700 text-white text-[7px] font-black flex items-center justify-center border border-black">🇺🇸</div>
-            </div>
-          </div>
-        </div>
-
         {/* 3. Live Price Scale Badge right side */}
         <div className="absolute right-0 top-[38%] z-30 pointer-events-auto">
           <div className="px-2 py-0.5 bg-[#ef4444] text-white font-mono text-[11px] font-bold rounded-l-xs shadow-md">
