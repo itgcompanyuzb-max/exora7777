@@ -29,6 +29,66 @@ interface TradingViewChartProps {
   onUpdateSlTp?: (positionId: string, sl?: number, tp?: number) => void;
 }
 
+// Format position open time (e.g. 17:05:24)
+function formatOpenTime(isoString?: string): string {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+// Calculate the horizontal percentage (X) corresponding to the exact candle time of opening
+function calculateBarStartX(openedAt?: string, interval?: string): number {
+  if (!openedAt) return 80;
+  const openedTime = new Date(openedAt).getTime();
+  if (isNaN(openedTime)) return 80;
+  const now = Date.now();
+  const elapsedSec = Math.max(0, (now - openedTime) / 1000);
+
+  let barSec = 60;
+  switch (interval) {
+    case '1m':
+    case '1':
+      barSec = 60;
+      break;
+    case '5m':
+    case '5':
+      barSec = 300;
+      break;
+    case '15m':
+    case '15':
+      barSec = 900;
+      break;
+    case '30m':
+    case '30':
+      barSec = 1800;
+      break;
+    case '1h':
+    case '60':
+      barSec = 3600;
+      break;
+    case '4h':
+    case '240':
+      barSec = 14400;
+      break;
+    case '1D':
+    case 'D':
+      barSec = 86400;
+      break;
+    default:
+      barSec = 900;
+  }
+
+  const barsAgo = elapsedSec / barSec;
+  // Live candle is positioned at ~84% of chart viewport (accounting for right price scale)
+  // Each bar occupies roughly 1.15% width
+  const calculatedX = 84 - (barsAgo * 1.15);
+  return Math.max(8, Math.min(84, calculatedX));
+}
+
 export function TradingViewChart({
   symbol,
   interval = '15',
@@ -321,6 +381,10 @@ export function TradingViewChart({
           const refPrice = currentPrice || pos.openPrice || 4179.5;
           const entryPrice = pos.openPrice || refPrice;
           
+          // Time and horizontal start coordinate on the chart
+          const startX = calculateBarStartX(pos.openedAt, currentInterval);
+          const openTimeStr = formatOpenTime(pos.openedAt);
+
           // Realistic vertical anchor aligned with chart candles
           const priceDiff = entryPrice - refPrice;
           const stagger = (idx - (matchingPositions.length - 1) / 2) * 6;
@@ -341,44 +405,53 @@ export function TradingViewChart({
 
           return (
             <React.Fragment key={pos.id}>
-              {/* 1. ENTRY HORIZONTAL LINE ACROSS ENTIRE CHART */}
+              {/* 1. ENTRY HORIZONTAL RAY (CHIZIQCHA) - ORIGINATING FROM OPEN TIME & PRICE */}
               <div 
                 style={{ top: `${safeY}%` }}
                 className="absolute left-0 right-0 z-30 pointer-events-none transition-all duration-300"
               >
-                {/* A. Entry Left Tag (e.g. ▲ BUY 0.01 @ 4,179.67) */}
+                {/* A. Horizontal dashed ray starting from exact candle time (startX%) and extending to the right edge */}
                 <div 
-                  className="absolute left-3 -top-[13px] pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[11px] font-mono font-bold shadow-2xl border select-none"
-                  style={{ backgroundColor: lineBg, borderColor: lineColor }}
+                  className="absolute -top-[1px] h-0 border-b-2 border-dashed opacity-95 transition-all duration-200"
+                  style={{ 
+                    left: `${startX}%`,
+                    right: 0,
+                    borderColor: lineColor, 
+                    boxShadow: `0 0 10px ${lineColor}, 0 0 20px ${lineColor}40` 
+                  }}
+                />
+
+                {/* B. Starting Point Marker & Timestamp Tag at the exact candle where trade was opened */}
+                <div 
+                  className="absolute -top-[17px] pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[11px] font-mono font-bold shadow-2xl border select-none transition-all z-35 group"
+                  style={{ 
+                    left: `${startX}%`,
+                    transform: 'translateX(-50%)',
+                    backgroundColor: lineBg, 
+                    borderColor: lineColor 
+                  }}
                 >
                   <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                   <span className="font-extrabold">{isBuy ? '▲ BUY' : '▼ SELL'}</span>
                   <span className="text-gray-200">{pos.lotSize}</span>
-                  <span className="text-white">@ {pos.openPrice}</span>
-                  {pos.ticket && <span className="text-white/60 text-[9px] ml-1">{pos.ticket}</span>}
+                  <span className="text-white font-black">@ {pos.openPrice}</span>
+                  {openTimeStr && (
+                    <span className="bg-black/60 px-1.5 py-0.5 rounded text-[9px] text-white/90 flex items-center gap-1 border border-white/10 font-normal">
+                      🕒 {openTimeStr}
+                    </span>
+                  )}
+                  {pos.ticket && <span className="text-white/60 text-[9px] ml-0.5">{pos.ticket}</span>}
                 </div>
 
-                {/* B. Sdelka ochilgan joydagi nuqta (Entry Point Marker on the Candle) */}
-                <div className="absolute left-[38%] -top-[12px] pointer-events-auto flex flex-col items-center select-none group cursor-pointer">
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-xl border-2 border-white transition-transform group-hover:scale-110"
-                    style={{ backgroundColor: lineColor }}
-                    title={`Sdelka ochilgan joy: ${pos.openPrice}`}
-                  >
-                    {isBuy ? '▲' : '▼'}
-                  </div>
-                  <span className="text-[9px] font-mono font-bold text-white bg-black/90 px-1.5 py-0.2 rounded border border-white/20 shadow mt-0.5 whitespace-nowrap">
-                    Ochilgan joy: {pos.openPrice}
-                  </span>
-                </div>
-
-                {/* C. Extended Horizontal Dashed Line running across the entire chart */}
+                {/* C. Vertical Entry Beacon dropped down on the candle */}
                 <div 
-                  className="w-full h-0 border-b-2 border-dashed opacity-95"
+                  className="absolute -top-[2px] w-2 h-2 rounded-full border-2 border-white shadow-lg pointer-events-auto"
                   style={{ 
-                    borderColor: lineColor, 
-                    boxShadow: `0 0 10px ${lineColor}, 0 0 20px ${lineColor}40` 
+                    left: `${startX}%`,
+                    transform: 'translate(-50%, -50%)',
+                    backgroundColor: lineColor 
                   }}
+                  title={`Sdelka ochilgan vaqt: ${openTimeStr || 'Hozir'} | Narx: ${pos.openPrice}`}
                 />
 
                 {/* D. Right Price Scale Tag (Entry price flagged on the right axis) */}
@@ -462,7 +535,10 @@ export function TradingViewChart({
                   style={{ top: `${slY}%` }}
                   className="absolute left-0 right-0 z-20 pointer-events-none transition-all duration-300"
                 >
-                  <div className="w-full h-px border-t border-dashed border-red-500 opacity-90 shadow-sm" />
+                  <div 
+                    className="absolute h-px border-t border-dashed border-red-500 opacity-90 shadow-sm"
+                    style={{ left: `${startX}%`, right: 0 }}
+                  />
                   <div className="absolute right-16 -top-[10px] pointer-events-auto bg-[#450a0a] text-red-300 border border-red-500 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow">
                     SL: {pos.sl}
                   </div>
@@ -475,7 +551,10 @@ export function TradingViewChart({
                   style={{ top: `${tpY}%` }}
                   className="absolute left-0 right-0 z-20 pointer-events-none transition-all duration-300"
                 >
-                  <div className="w-full h-px border-t border-dashed border-emerald-500 opacity-90 shadow-sm" />
+                  <div 
+                    className="absolute h-px border-t border-dashed border-emerald-500 opacity-90 shadow-sm"
+                    style={{ left: `${startX}%`, right: 0 }}
+                  />
                   <div className="absolute right-16 -top-[10px] pointer-events-auto bg-[#064e3b] text-emerald-300 border border-emerald-500 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow">
                     TP: {pos.tp}
                   </div>

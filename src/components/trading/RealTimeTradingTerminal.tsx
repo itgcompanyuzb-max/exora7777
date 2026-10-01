@@ -373,6 +373,27 @@ export function RealTimeTradingTerminal() {
             symbol={activeSymbol.symbol} 
             interval="15" 
             className="flex-1 w-full h-full"
+            positions={(positions || []).map((p: any) => ({
+              id: p.id,
+              ticket: String(p.ticket || ''),
+              accountId: p.accountId,
+              symbol: p.symbol,
+              side: (p.type === 'BUY' ? 'buy' : 'sell') as 'buy' | 'sell',
+              lotSize: p.lots,
+              openPrice: p.openPrice,
+              currentPrice: p.currentPrice || p.openPrice,
+              sl: p.sl,
+              tp: p.tp,
+              commission: p.commission || 0,
+              swap: p.swap || 0,
+              pnl: p.pnl || 0,
+              status: (p.status === 'OPEN' ? 'open' : 'closed') as 'open' | 'closed',
+              openedAt: p.openedAt || new Date().toISOString(),
+            }))}
+            currentBid={activeSymbol.bid}
+            currentAsk={activeSymbol.ask}
+            onClosePosition={(posId) => handleCloseOrder(posId)}
+            onQuickTrade={(side) => handleOpenOrder(side === 'buy' ? 'BUY' : 'SELL')}
             onSymbolChange={(sym) => {
               for (const [k, v] of symbols.entries()) {
                 if (v.symbol.replace(/[\/\-_]/g, '').toUpperCase() === sym.replace(/[\/\-_]/g, '').toUpperCase()) {
