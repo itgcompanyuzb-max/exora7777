@@ -389,6 +389,26 @@ class TradingEngineService {
   }
 
   /**
+   * Modify Open Position (SL / TP)
+   */
+  public modifyPosition(positionId: string, sl?: number, tp?: number): {
+    success: boolean;
+    position?: PositionEntity;
+    error?: string;
+  } {
+    const pos = this.positions.get(positionId);
+    if (!pos || pos.status !== 'OPEN') {
+      return { success: false, error: 'Position not found or already closed' };
+    }
+
+    if (sl !== undefined) pos.sl = sl > 0 ? sl : undefined;
+    if (tp !== undefined) pos.tp = tp > 0 ? tp : undefined;
+
+    this.onPositionUpdateListeners.forEach((l) => l(pos));
+    return { success: true, position: pos };
+  }
+
+  /**
    * Close Order & Settle Realized PnL to Balance
    */
   public closePosition(positionId: string, reason = 'Client Close', isLiquidated = false): {

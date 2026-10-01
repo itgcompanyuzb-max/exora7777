@@ -146,6 +146,25 @@ brokerRouter.post("/trading/order/open", (req, res) => {
   });
 });
 
+// Modify Order / Position (Stop Loss & Take Profit)
+brokerRouter.post("/trading/order/modify", (req, res) => {
+  const { positionId, sl, tp } = req.body;
+  if (!positionId) {
+    return res.status(400).json({ success: false, error: "positionId is required" });
+  }
+
+  const result = tradingEngine.modifyPosition(positionId, sl, tp);
+  if (!result.success) {
+    return res.status(400).json({ success: false, error: result.error });
+  }
+
+  return res.json({
+    success: true,
+    message: "Position SL/TP updated successfully",
+    position: result.position,
+  });
+});
+
 // Close Position
 brokerRouter.post("/trading/order/close", (req, res) => {
   const { positionId } = req.body;

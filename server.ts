@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import { brokerRouter } from "./server/brokerApi.js";
 import { initTradingWebSocket } from "./server/tradingWs.js";
 import { tradingViewRouter } from "./server/tradingViewUdf.js";
+import { tradingEngine } from "./server/tradingEngine.js";
 
 dotenv.config();
 
@@ -50,6 +51,72 @@ async function startServer() {
   // TradingView Universal Data Feed (UDF) API routes
   app.use("/api/tv", tradingViewRouter);
   app.use("/tv", tradingViewRouter);
+
+  // RESTful standard TradingView / Broker endpoints
+  app.get("/api/positions", (_req, res) => {
+    const list = Array.from(tradingEngine.positions.values()).filter(p => p.status === 'OPEN');
+    res.json({ success: true, positions: list });
+  });
+
+  app.get("/api/orders", (_req, res) => {
+    const list = Array.from(tradingEngine.positions.values());
+    res.json({ success: true, orders: list });
+  });
+
+  app.post("/api/orders", (req, res) => {
+    const { accountId, symbol, type, side, lots, qty, sl, tp } = req.body;
+    const targetAccId = accountId || Array.from(tradingEngine.accounts.keys())[0];
+    const orderSide = (side || type || 'BUY').toUpperCase() as 'BUY' | 'SELL';
+    const lotSize = parseFloat(lots || qty || '0.01');
+
+    const result = tradingEngine.openOrder({
+      accountId: targetAccId,
+      symbol: (symbol || 'XAUUSD').toUpperCase().replace(/[\s\/-]/g, ''),
+      type: orderSide,
+      lots: lotSize,
+      sl: sl ? parseFloat(sl) : undefined,
+      tp: tp ? parseFloat(tp) : undefined,
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: result.error });
+    }
+
+    return res.json({
+      success: true,
+      orderId: result.position?.id,
+      ticket: result.position?.ticket,
+      fillPrice: result.position?.openPrice,
+      status: "filled",
+      position: result.position,
+    });
+  });
+
+  app.put("/api/orders/:id", (req, res) => {
+    const { sl, tp } = req.body;
+    const result = tradingEngine.modifyPosition(
+      req.params.id,
+      sl !== undefined ? parseFloat(sl) : undefined,
+      tp !== undefined ? parseFloat(tp) : undefined
+    );
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: result.error });
+    }
+    return res.json({ success: true, position: result.position });
+  });
+
+  app.delete("/api/orders/:id", (req, res) => {
+    const result = tradingEngine.closePosition(req.params.id, "Client Close");
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: result.error });
+    }
+    return res.json({
+      success: true,
+      message: "Order closed successfully",
+      realizedPnl: result.realizedPnl,
+      newBalance: result.newBalance,
+    });
+  });
 
   // Health check endpoint
   app.get("/api/health", (_req, res) => {

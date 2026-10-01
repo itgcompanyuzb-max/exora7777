@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toTradingViewSymbol } from '../../lib/liveMarketFeed';
 import { Position } from '../../types/broker';
+import { exnessBroker } from '../../lib/tradingview/ExnessBrokerAdapter';
 import { 
   RefreshCw, 
   Activity, 
@@ -144,7 +145,15 @@ export function TradingViewChart({
         setActiveEngine('library');
         if (typeof widget.onChartReady === 'function') {
           widget.onChartReady(() => {
-            if (isMounted) setIsLoaded(true);
+            if (isMounted) {
+              setIsLoaded(true);
+              try {
+                const chart = widget.chart();
+                exnessBroker.setChart(chart);
+              } catch (e) {
+                console.warn('[ExnessBroker] setChart hook:', e);
+              }
+            }
           });
         } else {
           setTimeout(() => { if (isMounted) setIsLoaded(true); }, 800);
@@ -193,6 +202,34 @@ export function TradingViewChart({
       isMounted = false;
     };
   }, [containerId, tvSymbol, tvInterval, theme, chartStyle, key]);
+
+  // Synchronize open positions with ExnessBroker native chart position lines
+  useEffect(() => {
+    (positions || []).forEach((p) => {
+      if (p.status === 'open') {
+        exnessBroker.drawPositionOnChart({
+          id: p.id,
+          symbol: p.symbol,
+          qty: p.side === 'buy' ? p.lotSize : -p.lotSize,
+          side: p.side === 'buy' ? 'Buy' : 'Sell',
+          avgPrice: p.openPrice,
+          currentPrice: p.currentPrice || p.openPrice,
+          stopLoss: p.sl,
+          takeProfit: p.tp,
+          unrealizedPl: p.pnl,
+          openedAt: new Date(p.openedAt).getTime(),
+        });
+      } else {
+        exnessBroker.removeChartLines(p.id);
+      }
+    });
+  }, [positions]);
+
+  // Synchronize live market tick to update P/L on native position lines
+  useEffect(() => {
+    if (!currentBid || !currentAsk) return;
+    exnessBroker.updateMarketTick(symbol, currentBid, currentAsk);
+  }, [currentBid, currentAsk, symbol]);
 
   // Direct Embed URL for Fallback
   const embedUrl = useMemo(() => {
