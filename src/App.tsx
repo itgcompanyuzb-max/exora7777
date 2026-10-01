@@ -11,6 +11,7 @@ import { EducationAndSupportView } from "./components/broker/EducationAndSupport
 import { AdminPortalView } from "./components/broker/AdminPortalView";
 import { MediaCenterView } from "./components/broker/MediaCenterView";
 import { AuthModal } from "./components/broker/AuthModal";
+import { MetaTraderTerminal } from "./components/MetaTraderTerminal";
 import { 
   ShieldCheck, 
   TrendingUp, 
@@ -41,7 +42,7 @@ export default function App() {
       return true;
     }
   });
-  const [activeTab, setActiveTab] = useState<'landing' | 'webtrader' | 'cabinet' | 'kyc' | 'support' | 'admin' | 'media'>('cabinet');
+  const [activeTab, setActiveTab] = useState<'landing' | 'webtrader' | 'metatrader' | 'cabinet' | 'kyc' | 'support' | 'admin' | 'media'>('webtrader');
 
   // Auth Modal State
   const [authOpen, setAuthOpen] = useState(false);
@@ -81,11 +82,11 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#0e110f] text-[#f4f7f2] font-sans antialiased selection:bg-primary selection:text-black flex flex-col ${activeTab === 'webtrader' ? 'h-screen overflow-hidden' : 'justify-between'}`}>
+    <div className={`min-h-screen bg-[#0e110f] text-[#f4f7f2] font-sans antialiased selection:bg-primary selection:text-black flex flex-col ${(activeTab === 'webtrader' || activeTab === 'metatrader') ? 'h-screen overflow-hidden' : 'justify-between'}`}>
       <Toaster position="top-right" theme="dark" richColors />
 
-      {/* 2. PRIMARY NAVBAR (Displayed across all sections except WebTrader which has full-screen terminal header) */}
-      {activeTab !== 'webtrader' && (
+      {/* 2. PRIMARY NAVBAR (Displayed across all sections except WebTrader and MetaTrader terminals) */}
+      {(activeTab !== 'webtrader' && activeTab !== 'metatrader') && (
         <header className="sticky top-0 z-40 bg-[#0e110f]/90 backdrop-blur-xl border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between">
             {/* Brand Logo */}
@@ -118,6 +119,15 @@ export default function App() {
                 >
                   <TrendingUp className="size-3.5" />
                   <span>{t.webTraderTitle}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('metatrader')}
+                  className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'metatrader' ? 'bg-[#2962FF] text-white font-extrabold shadow-md' : 'text-gray-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span>MetaTrader Terminal</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('cabinet')}
@@ -388,6 +398,14 @@ export default function App() {
             lang={lang}
             onOpenDeposit={() => setActiveTab('cabinet')}
             onReturnToCabinet={() => setActiveTab('cabinet')}
+            onSwitchToMetaTrader={() => setActiveTab('metatrader')}
+          />
+        </div>
+      ) : activeTab === 'metatrader' ? (
+        <div className="w-full h-screen overflow-hidden flex flex-col">
+          <MetaTraderTerminal
+            onBackToCabinet={() => setActiveTab('cabinet')}
+            onSwitchToWebTrader={() => setActiveTab('webtrader')}
           />
         </div>
       ) : (

@@ -53,12 +53,13 @@ interface WebTraderViewProps {
   lang: Language;
   onOpenDeposit: () => void;
   onReturnToCabinet?: () => void;
+  onSwitchToMetaTrader?: () => void;
 }
 
 type TimeFrame = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1D' | '1W';
 type ChartStyleType = 'candles' | 'line' | 'area' | 'bars';
 
-export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTraderViewProps) {
+export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitchToMetaTrader }: WebTraderViewProps) {
   const t = translations[lang];
   const [symbols, setSymbols] = useState<ForexSymbolRate[]>(brokerStore.getSymbols());
 
@@ -634,6 +635,18 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
           >
             <HelpCircle className="size-4" />
           </button>
+
+          {/* Switch to MetaTrader Pro Terminal */}
+          {onSwitchToMetaTrader && (
+            <button 
+              onClick={onSwitchToMetaTrader}
+              className="px-2.5 py-1 rounded-md bg-[#2962FF]/20 hover:bg-[#2962FF]/35 text-[#93c5fd] border border-[#2962FF]/50 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+              title="MetaTrader Pro Terminaliga o'tish (Lightweight-Charts + Drag SL/TP)"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span className="hidden sm:inline">MT5 Pro</span>
+            </button>
+          )}
 
           {/* Deposit Button: Dark Teal matching Exness */}
           <button 
