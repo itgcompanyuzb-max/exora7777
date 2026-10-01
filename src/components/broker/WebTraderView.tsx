@@ -141,8 +141,6 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     'BTC', 'ETH', 'SOL', 'XAU/USD', 'EUR/USD', 'GBP/USD', 'USD/JPY', 'US30'
   ]);
 
-  // Real-Time Internet Exchange Engine ('tradingview' = Real TradingView Terminal with on-chart Exness position lines)
-  const [chartEngine, setChartEngine] = useState<'tradingview' | 'canvas'>('tradingview');
   const [liveStatus, setLiveStatus] = useState<LiveMarketStatus>(liveMarketFeed.getStatus());
 
   const [accounts, setAccounts] = useState<TradingAccount[]>(brokerStore.getAccounts());
@@ -1010,33 +1008,13 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
               </span>
             </div>
 
-            {/* Middle: Engine Switcher (Exness Pro vs TradingView) */}
-            <div className="flex items-center bg-black/60 p-0.5 rounded-lg border border-white/15 text-xs">
-              <button
-                onClick={() => setChartEngine('canvas')}
-                className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  chartEngine === 'canvas' 
-                    ? 'bg-primary text-black font-extrabold shadow-sm' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                title="Exness uslubidagi gorizontal bitim chiziqlari va jonli PnL"
-              >
-                <Zap className="size-3.5" />
-                <span>Exness Pro</span>
-              </button>
-              <button
-                onClick={() => setChartEngine('tradingview')}
-                className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  chartEngine === 'tradingview' 
-                    ? 'bg-primary text-black font-extrabold shadow-sm' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <span>TradingView</span>
-              </button>
+            {/* Middle: TradingView Terminal Active Badge */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/60 border border-white/15 text-xs">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="font-extrabold text-white tracking-wide">TradingView Terminal</span>
             </div>
 
-            {/* Right: Timeframe Selector & Chart Mode */}
+            {/* Right: Timeframe Selector */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10">
                 {(['1m', '5m', '15m', '1h', '4h', '1D'] as TimeFrame[]).map(tf => (
@@ -1051,146 +1029,35 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                   </button>
                 ))}
               </div>
-
-              {chartEngine === 'canvas' && (
-                <>
-                  <div className="flex items-center bg-white/5 p-0.5 rounded-lg border border-white/10 text-[11px]">
-                    <button
-                      onClick={() => setChartMode('candles')}
-                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
-                        chartMode === 'candles' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Shamlar
-                    </button>
-                    <button
-                      onClick={() => setChartMode('line')}
-                      className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
-                        chartMode === 'line' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Chiziq
-                    </button>
-                  </div>
-
-                  {/* Indicators Dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setIndicatorsOpen(!indicatorsOpen)}
-                      className="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-xs flex items-center gap-1 border border-white/10 cursor-pointer"
-                    >
-                      <Activity className="size-3.5 text-primary" />
-                      <span>Indikatorlar</span>
-                    </button>
-                    {indicatorsOpen && (
-                      <div className="absolute right-0 mt-1 w-56 rounded-xl bg-[#141916] border border-white/10 p-3 shadow-2xl z-50 flex flex-col gap-2">
-                        <div className="text-[11px] font-bold text-white border-b border-white/10 pb-1.5">
-                          Texnik Ko'rsatkichlar
-                        </div>
-                        <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
-                          <span>SMA 20 (Moving Average)</span>
-                          <input 
-                            type="checkbox" 
-                            checked={showSMA} 
-                            onChange={() => setShowSMA(!showSMA)} 
-                            className="rounded accent-primary"
-                          />
-                        </label>
-                        <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
-                          <span>EMA 50 (Exponential)</span>
-                          <input 
-                            type="checkbox" 
-                            checked={showEMA} 
-                            onChange={() => setShowEMA(!showEMA)} 
-                            className="rounded accent-amber-400"
-                          />
-                        </label>
-                        <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
-                          <span>Hajmlar (Volume)</span>
-                          <input 
-                            type="checkbox" 
-                            checked={showVolume} 
-                            onChange={() => setShowVolume(!showVolume)} 
-                            className="rounded accent-primary"
-                          />
-                        </label>
-                        <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
-                          <span>RSI 14 (Momentum)</span>
-                          <input 
-                            type="checkbox" 
-                            checked={showRSI} 
-                            onChange={() => setShowRSI(!showRSI)} 
-                            className="rounded accent-purple-400"
-                          />
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
           </div>
 
-          {/* Chart Viewport */}
-          {chartEngine === 'tradingview' ? (
-            <TradingViewChart
-              symbol={selectedSymbol.symbol}
-              interval={timeframe}
-              positions={userOpenPositions}
-              currentBid={selectedSymbol.bid}
-              currentAsk={selectedSymbol.ask}
-              onClosePosition={(id) => {
-                const pos = userOpenPositions.find(p => p.id === id);
-                brokerStore.closePosition(id);
-                toast.success(`Bitim #${id.slice(-6)} yopildi! PnL: ${pos && pos.pnl >= 0 ? '+' : ''}$${pos?.pnl.toFixed(2) || '0.00'}`);
-              }}
-              onUpdateSlTp={(id, sl, tp) => {
-                brokerStore.updatePositionSlTp(id, sl, tp);
-                toast.success("SL / TP yangilandi!");
-              }}
-              className="flex-1 w-full h-full"
-              onSymbolChange={(symName) => {
-                const found = symbols.find(s => s.symbol.replace(/[\/\-_]/g, '').toUpperCase() === symName.replace(/[\/\-_]/g, '').toUpperCase());
-                if (found) handleSelectSymbol(found);
-              }}
-              onQuickTrade={(side) => {
-                setOrderSide(side);
-                handleExecuteOrder();
-              }}
-            />
-          ) : (
-            <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[#0a0d0b]">
-              <canvas
-                ref={canvasRef}
-                width={1000}
-                height={500}
-                onClick={handleCanvasClick}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseLeave={() => setMousePos(null)}
-                className="w-full h-full cursor-crosshair block"
-              />
-
-              {/* Quick Price Overlay Top-Left */}
-              <div className="absolute top-3 left-3 bg-[#111613]/90 border border-white/10 backdrop-blur-md rounded-xl p-2.5 text-xs font-mono pointer-events-none flex items-center gap-4">
-                <div>
-                  <span className="text-[10px] text-gray-400 block">BID:</span>
-                  <span className="font-bold text-white text-sm">{selectedSymbol.bid.toFixed(selectedSymbol.digitPrecision)}</span>
-                </div>
-                <div className="h-6 w-px bg-white/10" />
-                <div>
-                  <span className="text-[10px] text-gray-400 block">ASK:</span>
-                  <span className="font-bold text-primary text-sm">{selectedSymbol.ask.toFixed(selectedSymbol.digitPrecision)}</span>
-                </div>
-                <div className="h-6 w-px bg-white/10" />
-                <div>
-                  <span className="text-[10px] text-gray-400 block">24s O'zgarish:</span>
-                  <span className={`font-bold ${selectedSymbol.change24h >= 0 ? 'text-primary' : 'text-rose-400'}`}>
-                    {selectedSymbol.change24h >= 0 ? '+' : ''}{selectedSymbol.change24h}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Chart Viewport: Pure Official TradingView Terminal */}
+          <TradingViewChart
+            symbol={selectedSymbol.symbol}
+            interval={timeframe}
+            positions={userOpenPositions}
+            currentBid={selectedSymbol.bid}
+            currentAsk={selectedSymbol.ask}
+            onClosePosition={(id) => {
+              const pos = userOpenPositions.find(p => p.id === id);
+              brokerStore.closePosition(id);
+              toast.success(`Bitim #${id.slice(-6)} yopildi! PnL: ${pos && pos.pnl >= 0 ? '+' : ''}$${pos?.pnl.toFixed(2) || '0.00'}`);
+            }}
+            onUpdateSlTp={(id, sl, tp) => {
+              brokerStore.updatePositionSlTp(id, sl, tp);
+              toast.success("SL / TP yangilandi!");
+            }}
+            className="flex-1 w-full h-full"
+            onSymbolChange={(symName) => {
+              const found = symbols.find(s => s.symbol.replace(/[\/\-_]/g, '').toUpperCase() === symName.replace(/[\/\-_]/g, '').toUpperCase());
+              if (found) handleSelectSymbol(found);
+            }}
+            onQuickTrade={(side) => {
+              setOrderSide(side);
+              handleExecuteOrder();
+            }}
+          />
         </main>
 
         {/* --------------------------------------------------------------------- */}

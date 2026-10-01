@@ -531,7 +531,7 @@ export function RealTimeTradingTerminal() {
           </div>
 
           <div className="text-[10px] text-gray-500 text-center">
-            Exness Hybrid Execution Engine • Auto Stop-Out: 20%
+            Exora Prime Hybrid Execution Engine • Auto Stop-Out: 20%
           </div>
         </aside>
       </div>
