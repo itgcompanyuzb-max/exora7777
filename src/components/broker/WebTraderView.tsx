@@ -161,19 +161,16 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
 
   // Filter positions for active user / account
   const userOpenPositions = useMemo(() => {
-    if (!selectedAccount) return positions;
-    return positions.filter(p => p.accountId === selectedAccount.id && p.status === 'open');
-  }, [positions, selectedAccount]);
+    return positions.filter(p => p.status === 'open');
+  }, [positions]);
 
   const userPendingOrders = useMemo(() => {
-    if (!selectedAccount) return pendingOrders;
-    return pendingOrders.filter(o => o.accountId === selectedAccount.id && (o.status === 'pending' || (o as any).status === 'active'));
-  }, [pendingOrders, selectedAccount]);
+    return pendingOrders.filter(o => o.status === 'pending' || (o as any).status === 'active');
+  }, [pendingOrders]);
 
   const userClosedPositions = useMemo(() => {
-    if (!selectedAccount) return [];
-    return positions.filter(p => p.accountId === selectedAccount.id && p.status === 'closed');
-  }, [positions, selectedAccount]);
+    return positions.filter(p => p.status === 'closed');
+  }, [positions]);
 
   // Account Financial Calculations
   const totalFloatingPnl = useMemo(() => {
@@ -193,20 +190,44 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     return Math.max(0, currentEquity - usedMargin);
   }, [currentEquity, usedMargin]);
 
+  // Web Audio click/chime for trade execution
+  function playTradeSound(side: 'buy' | 'sell') {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(side === 'buy' ? 880 : 660, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(side === 'buy' ? 1320 : 440, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {}
+  }
+
   // Execute 1-Click Order (Instant from chart toolbar)
   function handleOneClickTrade(side: 'buy' | 'sell') {
-    if (!selectedAccount) return;
     try {
       const price = side === 'buy' ? selectedSymbol.ask : selectedSymbol.bid;
+      const accId = selectedAccount?.id || accounts[0]?.id || 'acc_demo_pro_4198205';
       brokerStore.openPosition({
-        accountId: selectedAccount.id,
+        accountId: accId,
         symbol: selectedSymbol.symbol,
         side,
         lotSize: Math.max(0.01, lotSize),
       });
 
+      setPositions(brokerStore.getPositions());
+      playTradeSound(side);
+
       toast.success(
-        `${side.toUpperCase()} #${Math.floor(100000 + Math.random() * 900000)} ochildi: ${lotSize} lot ${selectedSymbol.symbol} @ ${price}`
+        `${side.toUpperCase()} bitim ochildi: ${lotSize} lot ${selectedSymbol.symbol} @ ${price}`,
+        { description: "Grafikda sdelka darajasi va ochilgan nuqtasi chizildi" }
       );
     } catch (err: any) {
       toast.error(err.message || "Bitim ochishda xatolik");

@@ -59,13 +59,18 @@ export function TradingViewChart({
 
   const tvSymbol = useMemo(() => toTradingViewSymbol(symbol), [symbol]);
 
-  // Filter open positions that match this chart's symbol
+  // Filter open positions that match this chart's symbol with flexible matching
   const matchingPositions = useMemo(() => {
-    return (positions || []).filter(
-      p => p.status === 'open' && (
-        p.symbol.toUpperCase().replace(/[\s\/-]/g, '') === symbol.toUpperCase().replace(/[\s\/-]/g, '')
-      )
-    );
+    const s1 = symbol.toUpperCase().replace(/[\s\/\-_]/g, '');
+    return (positions || []).filter(p => {
+      if (p.status !== 'open') return false;
+      const s2 = p.symbol.toUpperCase().replace(/[\s\/\-_]/g, '');
+      return s1 === s2 || 
+        (s1.includes('XAU') && s2.includes('XAU')) || 
+        (s1.includes('BTC') && s2.includes('BTC')) || 
+        (s1.includes('EUR') && s2.includes('EUR')) || 
+        (s1.includes('OIL') && s2.includes('OIL'));
+    });
   }, [positions, symbol]);
 
   // Convert timeframe to TradingView format
@@ -311,47 +316,81 @@ export function TradingViewChart({
         {matchingPositions.map((pos, idx) => {
           const isBuy = pos.side === 'buy';
           const isProfit = pos.pnl >= 0;
-          const currentPrice = isBuy ? (currentBid || pos.currentPrice) : (currentAsk || pos.currentPrice);
-          const percentDelta = (pos.openPrice - currentPrice) / (currentPrice || 1);
-          // Realistic vertical anchor aligned with TradingView price candles
-          const baseCenter = 50;
-          const deltaY = (percentDelta / 0.012) * 32;
-          const indexStagger = (idx - (matchingPositions.length - 1) / 2) * 28;
-          const calculatedY = Math.max(14, Math.min(82, baseCenter - deltaY)) + (indexStagger / 500) * 100;
-          const lineColor = isBuy ? '#2563eb' : '#dc2626';
-          const badgeBorder = isBuy ? 'border-blue-600' : 'border-red-600';
+          const currentPrice = isBuy ? (currentBid || pos.currentPrice || pos.openPrice) : (currentAsk || pos.currentPrice || pos.openPrice);
+          const refPrice = currentPrice || pos.openPrice || 4179.5;
+          const entryPrice = pos.openPrice || refPrice;
+          
+          // Realistic vertical anchor aligned with chart candles
+          const priceDiff = entryPrice - refPrice;
+          const stagger = (idx - (matchingPositions.length - 1) / 2) * 6;
+          const offset = Math.max(-32, Math.min(32, priceDiff * 8));
+          const calculatedY = Math.max(12, Math.min(84, (48 + stagger) - offset));
+          const safeY = isNaN(calculatedY) ? (48 + idx * 5) : calculatedY;
+
+          const lineColor = isBuy ? '#3b82f6' : '#ef4444';
+          const lineBg = isBuy ? '#1d4ed8' : '#b91c1c';
+          const badgeBorder = isBuy ? 'border-blue-500' : 'border-red-500';
 
           // SL and TP relative vertical positions
-          const slPercentDelta = pos.sl ? (pos.sl - currentPrice) / (currentPrice || 1) : 0;
-          const slY = Math.max(8, Math.min(92, baseCenter - (slPercentDelta / 0.012) * 32));
+          const slPercentDelta = pos.sl ? (pos.sl - refPrice) / refPrice : 0;
+          const slY = Math.max(8, Math.min(92, safeY - (slPercentDelta * 80)));
 
-          const tpPercentDelta = pos.tp ? (pos.tp - currentPrice) / (currentPrice || 1) : 0;
-          const tpY = Math.max(8, Math.min(92, baseCenter - (tpPercentDelta / 0.012) * 32));
+          const tpPercentDelta = pos.tp ? (pos.tp - refPrice) / refPrice : 0;
+          const tpY = Math.max(8, Math.min(92, safeY - (tpPercentDelta * 80)));
 
           return (
             <React.Fragment key={pos.id}>
-              {/* 1. ENTRY HORIZONTAL LINE */}
+              {/* 1. ENTRY HORIZONTAL LINE ACROSS ENTIRE CHART */}
               <div 
-                style={{ top: `${calculatedY}%` }}
+                style={{ top: `${safeY}%` }}
                 className="absolute left-0 right-0 z-30 pointer-events-none transition-all duration-300"
               >
-                {/* Entry Left Label (e.g. BUY 0.10 @ 83050.00) */}
-                <div className="absolute left-3 -top-[11px] pointer-events-auto bg-[#0a0e0b]/90 text-white text-[10px] font-mono px-2 py-0.5 rounded border border-white/20 shadow-md">
-                  <span className={isBuy ? 'text-blue-400 font-bold' : 'text-red-400 font-bold'}>
-                    {pos.side.toUpperCase()}
-                  </span>{' '}
-                  <span className="font-bold">{pos.lotSize}</span> @ {pos.openPrice}
-                  {pos.ticket && <span className="text-gray-400 ml-1.5">{pos.ticket}</span>}
+                {/* A. Entry Left Tag (e.g. ▲ BUY 0.01 @ 4,179.67) */}
+                <div 
+                  className="absolute left-3 -top-[13px] pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[11px] font-mono font-bold shadow-2xl border select-none"
+                  style={{ backgroundColor: lineBg, borderColor: lineColor }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  <span className="font-extrabold">{isBuy ? '▲ BUY' : '▼ SELL'}</span>
+                  <span className="text-gray-200">{pos.lotSize}</span>
+                  <span className="text-white">@ {pos.openPrice}</span>
+                  {pos.ticket && <span className="text-white/60 text-[9px] ml-1">{pos.ticket}</span>}
                 </div>
 
-                {/* Extended Horizontal Line running across TradingView chart */}
+                {/* B. Sdelka ochilgan joydagi nuqta (Entry Point Marker on the Candle) */}
+                <div className="absolute left-[38%] -top-[12px] pointer-events-auto flex flex-col items-center select-none group cursor-pointer">
+                  <div 
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-xl border-2 border-white transition-transform group-hover:scale-110"
+                    style={{ backgroundColor: lineColor }}
+                    title={`Sdelka ochilgan joy: ${pos.openPrice}`}
+                  >
+                    {isBuy ? '▲' : '▼'}
+                  </div>
+                  <span className="text-[9px] font-mono font-bold text-white bg-black/90 px-1.5 py-0.2 rounded border border-white/20 shadow mt-0.5 whitespace-nowrap">
+                    Ochilgan joy: {pos.openPrice}
+                  </span>
+                </div>
+
+                {/* C. Extended Horizontal Dashed Line running across the entire chart */}
                 <div 
-                  className="w-full h-[2px] opacity-95 shadow-[0_0_8px_rgba(0,0,0,0.8)]"
-                  style={{ backgroundColor: lineColor }}
+                  className="w-full h-0 border-b-2 border-dashed opacity-95"
+                  style={{ 
+                    borderColor: lineColor, 
+                    boxShadow: `0 0 10px ${lineColor}, 0 0 20px ${lineColor}40` 
+                  }}
                 />
 
-                {/* Exness Badge on the right */}
-                <div className="absolute right-16 -top-[12px] pointer-events-auto flex items-center shadow-2xl select-none text-xs rounded-sm overflow-hidden border border-black/60 bg-[#0a0e0b]">
+                {/* D. Right Price Scale Tag (Entry price flagged on the right axis) */}
+                <div 
+                  className="absolute right-0 -top-[11px] pointer-events-auto px-2 py-0.5 text-white font-mono text-[10px] font-bold rounded-l-xs shadow-xl select-none"
+                  style={{ backgroundColor: lineColor }}
+                  title="Sdelka kirish narxi"
+                >
+                  {pos.openPrice}
+                </div>
+
+                {/* E. Exness Interactive Badge on the right */}
+                <div className="absolute right-20 -top-[13px] pointer-events-auto flex items-center shadow-2xl select-none text-xs rounded-md overflow-hidden border border-black/80 bg-[#0a0e0b]">
                   {/* [ TP ] */}
                   <button
                     onClick={() => {
@@ -361,7 +400,7 @@ export function TradingViewChart({
                         onUpdateSlTp?.(pos.id, pos.sl, isNaN(val) ? undefined : val);
                       }
                     }}
-                    className={`h-[24px] px-2 text-[10px] font-mono font-bold bg-[#0a0e0b] border flex items-center justify-center cursor-pointer transition-all hover:bg-emerald-950/60 ${
+                    className={`h-[26px] px-2.5 text-[10px] font-mono font-bold bg-[#0a0e0b] border flex items-center justify-center cursor-pointer transition-all hover:bg-emerald-950/60 ${
                       pos.tp 
                         ? 'border-emerald-500 text-emerald-400' 
                         : 'border-dashed border-emerald-500/70 text-emerald-500'
@@ -380,7 +419,7 @@ export function TradingViewChart({
                         onUpdateSlTp?.(pos.id, isNaN(val) ? undefined : val, pos.tp);
                       }
                     }}
-                    className={`h-[24px] px-2 text-[10px] font-mono font-bold bg-[#0a0e0b] border border-l-0 flex items-center justify-center cursor-pointer transition-all hover:bg-amber-950/60 ${
+                    className={`h-[26px] px-2.5 text-[10px] font-mono font-bold bg-[#0a0e0b] border border-l-0 flex items-center justify-center cursor-pointer transition-all hover:bg-amber-950/60 ${
                       pos.sl 
                         ? 'border-amber-500 text-amber-400' 
                         : 'border-dashed border-amber-500/70 text-amber-500'
@@ -390,16 +429,16 @@ export function TradingViewChart({
                     SL
                   </button>
 
-                  {/* [ 0.10 ] Lot Size */}
+                  {/* [ Lot Size ] */}
                   <div 
-                    className="h-[24px] px-2.5 text-[11px] font-mono font-bold flex items-center justify-center text-white"
+                    className="h-[26px] px-2.5 text-[11px] font-mono font-bold flex items-center justify-center text-white"
                     style={{ backgroundColor: lineColor }}
                   >
                     {pos.lotSize}
                   </div>
 
                   {/* [ Live PnL ] */}
-                  <div className={`h-[24px] px-2.5 text-[11px] font-mono font-bold bg-[#0a0e0b] border ${badgeBorder} flex items-center justify-center min-w-[88px] ${
+                  <div className={`h-[26px] px-2.5 text-[11px] font-mono font-bold bg-[#0a0e0b] border ${badgeBorder} flex items-center justify-center min-w-[90px] ${
                     isProfit ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
                     {isProfit ? '+' : ''}{pos.pnl.toFixed(2)} USD
@@ -408,7 +447,7 @@ export function TradingViewChart({
                   {/* [ ✕ ] Close Button */}
                   <button
                     onClick={() => onClosePosition?.(pos.id)}
-                    className={`h-[24px] px-2 text-[11px] font-bold bg-[#0a0e0b] border border-l-0 ${badgeBorder} text-gray-400 hover:text-white hover:bg-rose-900/60 flex items-center justify-center cursor-pointer transition-all`}
+                    className={`h-[26px] px-2.5 text-[11px] font-bold bg-[#0a0e0b] border border-l-0 ${badgeBorder} text-gray-400 hover:text-white hover:bg-rose-900/60 flex items-center justify-center cursor-pointer transition-all`}
                     title="Bitimni grafikdan yopish"
                   >
                     ✕
