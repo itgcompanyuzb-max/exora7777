@@ -314,6 +314,168 @@ export function TradingViewChart({
             <div className="absolute bottom-0 left-0 h-8 w-44 bg-[#0a0d0b] z-20 pointer-events-none" />
           </div>
         )}
+
+        {/* ============================================================== */}
+        {/* NATIVE-LOCKED TRADING POSITION LINES & REAL-TIME P/L           */}
+        {/* ============================================================== */}
+        {matchingPositions.map((pos, idx) => {
+          const isBuy = pos.side === 'buy';
+          const isProfit = pos.pnl >= 0;
+          const livePrice = isBuy 
+            ? (currentBid || pos.currentPrice || pos.openPrice) 
+            : (currentAsk || pos.currentPrice || pos.openPrice);
+
+          const refPrice = livePrice || pos.openPrice || 2685.5;
+          const entryPrice = pos.openPrice || refPrice;
+
+          // Vertical anchor locked to the price coordinate
+          const deltaPct = refPrice > 0 ? ((entryPrice - refPrice) / refPrice) * 100 : 0;
+          const stagger = (idx - (matchingPositions.length - 1) / 2) * 4;
+          const calculatedY = Math.max(8, Math.min(88, 48 - (deltaPct * 35) + stagger));
+          const safeY = isNaN(calculatedY) ? 48 : calculatedY;
+
+          const lineColor = isBuy ? '#2563eb' : '#dc2626';
+          const lineBg = isBuy ? '#1e3a8a' : '#7f1d1d';
+          const badgeBorder = isBuy ? 'border-blue-500' : 'border-red-500';
+
+          // SL and TP relative vertical positions
+          const slDeltaPct = pos.sl && refPrice > 0 ? ((pos.sl - refPrice) / refPrice) * 100 : 0;
+          const slY = Math.max(6, Math.min(92, 48 - (slDeltaPct * 35)));
+
+          const tpDeltaPct = pos.tp && refPrice > 0 ? ((pos.tp - refPrice) / refPrice) * 100 : 0;
+          const tpY = Math.max(6, Math.min(92, 48 - (tpDeltaPct * 35)));
+
+          return (
+            <React.Fragment key={pos.id}>
+              {/* 1. ENTRY POSITION LINE ACROSS CHART */}
+              <div 
+                style={{ top: `${safeY}%` }}
+                className="absolute left-0 right-0 z-30 pointer-events-none transition-all duration-150"
+              >
+                {/* Horizontal Dashed Line */}
+                <div 
+                  className="w-full h-0 border-b-2 border-dashed opacity-95 transition-all"
+                  style={{ 
+                    borderColor: lineColor, 
+                    boxShadow: `0 0 8px ${lineColor}, 0 0 16px ${lineColor}40` 
+                  }}
+                />
+
+                {/* Left Side Position Badge */}
+                <div 
+                  className="absolute left-3 -top-[14px] pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[11px] font-mono font-bold shadow-2xl border select-none transition-all"
+                  style={{ backgroundColor: lineBg, borderColor: lineColor }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  <span className="font-extrabold">{isBuy ? '▲ BUY' : '▼ SELL'}</span>
+                  <span className="text-gray-200">{pos.lotSize}</span>
+                  <span className="text-white font-black">@ {pos.openPrice}</span>
+                  {pos.ticket && <span className="text-white/60 text-[9px] ml-0.5">{pos.ticket}</span>}
+                </div>
+
+                {/* Right Side Price Tag on the Axis */}
+                <div 
+                  className="absolute right-0 -top-[11px] pointer-events-auto px-2 py-0.5 text-white font-mono text-[10px] font-bold rounded-l-xs shadow-xl select-none"
+                  style={{ backgroundColor: lineColor }}
+                  title="Sdelka kirish narxi"
+                >
+                  {pos.openPrice}
+                </div>
+
+                {/* Exness Interactive Action Toolbar on the right */}
+                <div className="absolute right-20 -top-[13px] pointer-events-auto flex items-center shadow-2xl select-none text-xs rounded-md overflow-hidden border border-black/80 bg-[#0a0e0b]">
+                  {/* [ TP ] Button */}
+                  <button
+                    onClick={() => {
+                      const input = prompt(`Take-Profit (TP) narxini kiriting [${pos.symbol}]:`, pos.tp ? String(pos.tp) : '');
+                      if (input !== null) {
+                        const val = parseFloat(input);
+                        onUpdateSlTp?.(pos.id, pos.sl, isNaN(val) ? undefined : val);
+                      }
+                    }}
+                    className={`h-[26px] px-2 text-[10px] font-mono font-bold bg-[#0a0e0b] border flex items-center justify-center cursor-pointer transition-all hover:bg-emerald-950/60 ${
+                      pos.tp 
+                        ? 'border-emerald-500 text-emerald-400' 
+                        : 'border-dashed border-emerald-500/70 text-emerald-500'
+                    }`}
+                    title="Take-Profit o'rnatish"
+                  >
+                    TP
+                  </button>
+
+                  {/* [ SL ] Button */}
+                  <button
+                    onClick={() => {
+                      const input = prompt(`Stop-Loss (SL) narxini kiriting [${pos.symbol}]:`, pos.sl ? String(pos.sl) : '');
+                      if (input !== null) {
+                        const val = parseFloat(input);
+                        onUpdateSlTp?.(pos.id, isNaN(val) ? undefined : val, pos.tp);
+                      }
+                    }}
+                    className={`h-[26px] px-2 text-[10px] font-mono font-bold bg-[#0a0e0b] border border-l-0 flex items-center justify-center cursor-pointer transition-all hover:bg-amber-950/60 ${
+                      pos.sl 
+                        ? 'border-amber-500 text-amber-400' 
+                        : 'border-dashed border-amber-500/70 text-amber-500'
+                    }`}
+                    title="Stop-Loss o'rnatish"
+                  >
+                    SL
+                  </button>
+
+                  {/* Lot Size */}
+                  <div 
+                    className="h-[26px] px-2 text-[11px] font-mono font-bold flex items-center justify-center text-white"
+                    style={{ backgroundColor: lineColor }}
+                  >
+                    {pos.lotSize}
+                  </div>
+
+                  {/* Live PnL Badge */}
+                  <div className={`h-[26px] px-2.5 text-[11px] font-mono font-bold bg-[#0a0e0b] border ${badgeBorder} flex items-center justify-center min-w-[85px] ${
+                    isProfit ? 'text-emerald-400' : 'text-rose-400'
+                  }`}>
+                    {isProfit ? '+' : ''}{pos.pnl.toFixed(2)} USD
+                  </div>
+
+                  {/* [ ✕ ] Quick Close Button */}
+                  <button
+                    onClick={() => onClosePosition?.(pos.id)}
+                    className={`h-[26px] px-2.5 text-[11px] font-bold bg-[#0a0e0b] border border-l-0 ${badgeBorder} text-gray-400 hover:text-white hover:bg-rose-900/60 flex items-center justify-center cursor-pointer transition-all`}
+                    title="Bitimni grafikdan yopish"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. STOP-LOSS LINE (IF SET) */}
+              {pos.sl && pos.sl > 0 && (
+                <div 
+                  style={{ top: `${slY}%` }}
+                  className="absolute left-0 right-0 z-20 pointer-events-none transition-all duration-150"
+                >
+                  <div className="w-full h-px border-t border-dashed border-red-500 opacity-90 shadow-sm" />
+                  <div className="absolute right-16 -top-[10px] pointer-events-auto bg-[#450a0a] text-red-300 border border-red-500 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow">
+                    SL: {pos.sl}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. TAKE-PROFIT LINE (IF SET) */}
+              {pos.tp && pos.tp > 0 && (
+                <div 
+                  style={{ top: `${tpY}%` }}
+                  className="absolute left-0 right-0 z-20 pointer-events-none transition-all duration-150"
+                >
+                  <div className="w-full h-px border-t border-dashed border-emerald-500 opacity-90 shadow-sm" />
+                  <div className="absolute right-16 -top-[10px] pointer-events-auto bg-[#064e3b] text-emerald-300 border border-emerald-500 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow">
+                    TP: {pos.tp}
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* Bottom Range Bar matching Exness/TradingView */}
