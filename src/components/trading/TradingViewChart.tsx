@@ -115,14 +115,15 @@ export function TradingViewChart({
     const TV = (window as any).TradingView;
     const Datafeeds = (window as any).Datafeeds;
 
-    // Mode 1: TradingView Charting Library (from quick-start docs)
+    // Mode 1: TradingView Charting Library (connected to local FinTech UDF backend)
     if (TV && TV.widget && Datafeeds && Datafeeds.UDFCompatibleDatafeed) {
       try {
+        const udfUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/tv` : '/api/tv';
         const widget = new TV.widget({
           container: containerId,
           locale: 'en',
           library_path: '/charting_library/',
-          datafeed: new Datafeeds.UDFCompatibleDatafeed('https://demo-feed-data.tradingview.com'),
+          datafeed: new Datafeeds.UDFCompatibleDatafeed(udfUrl),
           symbol: tvSymbol.includes(':') ? tvSymbol.split(':')[1] : tvSymbol,
           interval: tvInterval,
           fullscreen: false,

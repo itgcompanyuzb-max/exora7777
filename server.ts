@@ -8,6 +8,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 import dotenv from "dotenv";
 import { brokerRouter } from "./server/brokerApi.js";
 import { initTradingWebSocket } from "./server/tradingWs.js";
+import { tradingViewRouter } from "./server/tradingViewUdf.js";
 
 dotenv.config();
 
@@ -45,6 +46,10 @@ async function startServer() {
 
   // Forex Broker API v1 router
   app.use("/api/v1", brokerRouter);
+
+  // TradingView Universal Data Feed (UDF) API routes
+  app.use("/api/tv", tradingViewRouter);
+  app.use("/tv", tradingViewRouter);
 
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
