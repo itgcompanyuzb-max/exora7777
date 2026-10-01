@@ -11,7 +11,8 @@ import {
   TrendingUp, 
   TrendingDown, 
   Layers, 
-  Sparkles 
+  Sparkles,
+  Calendar
 } from 'lucide-react';
 
 interface TradingViewChartProps {
@@ -274,6 +275,75 @@ export function TradingViewChart({
         {/* ============================================================== */}
         {/* EXNESS ON-CHART LIVE POSITION LINES & INTERACTIVE PNL BADGES   */}
         {/* ============================================================== */}
+        {/* 1. On-Chart Symbol Ticker Info matching screenshot */}
+        <div className="absolute top-2 left-14 z-20 pointer-events-none flex items-center gap-2 text-[11px] font-mono select-none">
+          <div className="flex items-center gap-1.5 font-bold text-gray-200">
+            <span className="text-amber-400">⚱️</span>
+            <span>{symbol === 'XAU/USD' || symbol.includes('XAU') ? 'Gold vs US Dollar' : symbol} · {interval}</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5 text-gray-400 text-[10px]">
+            <span>O<strong className="text-blue-400">4,178.996</strong></span>
+            <span>H<strong className="text-blue-400">4,179.885</strong></span>
+            <span>L<strong className="text-blue-400">4,178.756</strong></span>
+            <span>C<strong className="text-blue-400">4,179.507</strong></span>
+            <span className="text-blue-400 font-bold">+0.743 (+0.02%)</span>
+          </div>
+        </div>
+
+        {/* 2. High-Impact Economic News Bands matching Exness chart */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-15">
+          {/* Shaded Red Vertical Band 1 */}
+          <div className="absolute top-0 bottom-8 left-[38%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1">
+            <div className="w-4 h-4 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center shadow-xs">
+              III
+            </div>
+          </div>
+          {/* Shaded Red Vertical Band 2 */}
+          <div className="absolute top-0 bottom-8 left-[44%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1">
+            <div className="w-4 h-4 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center shadow-xs">
+              III
+            </div>
+          </div>
+          {/* Shaded Red Vertical Band 3 with US Flag */}
+          <div className="absolute top-0 bottom-8 left-[52%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1">
+            <div className="w-4 h-4 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center shadow-xs">
+              III
+            </div>
+          </div>
+          {/* Shaded Red Vertical Band 4 with US Flag */}
+          <div className="absolute top-0 bottom-8 left-[70%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1 gap-0.5">
+            <div className="flex items-center -space-x-1">
+              <div className="w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[7px] font-black flex items-center justify-center">III</div>
+              <div className="w-3.5 h-3.5 rounded-full bg-blue-700 text-white text-[7px] font-black flex items-center justify-center border border-black">🇺🇸</div>
+            </div>
+          </div>
+          {/* Shaded Red Vertical Band 5 */}
+          <div className="absolute top-0 bottom-8 left-[78%] w-4 bg-red-900/20 border-x border-red-500/20 flex flex-col justify-end items-center pb-1 gap-0.5">
+            <div className="flex items-center -space-x-1">
+              <div className="w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[7px] font-black flex items-center justify-center">III</div>
+              <div className="w-3.5 h-3.5 rounded-full bg-blue-700 text-white text-[7px] font-black flex items-center justify-center border border-black">🇺🇸</div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Live Price Scale Badge right side */}
+        <div className="absolute right-0 top-[38%] z-30 pointer-events-auto">
+          <div className="px-2 py-0.5 bg-[#ef4444] text-white font-mono text-[11px] font-bold rounded-l-xs shadow-md">
+            {currentBid ? currentBid.toFixed(3) : '4,179.507'}
+          </div>
+        </div>
+
+        {/* 4. Quick Place Limit Order (+) button on hover */}
+        <div className="absolute right-0 top-[42%] z-25 pointer-events-auto hidden hover:flex items-center">
+          <button 
+            onClick={() => onQuickTrade?.('buy', symbol)}
+            className="flex items-center gap-1 px-1.5 py-0.5 bg-[#1f262b] hover:bg-primary text-gray-200 hover:text-black font-mono text-[10px] rounded-l border border-r-0 border-white/20 transition-colors"
+          >
+            <span>+</span>
+            <span>4,173.080</span>
+          </button>
+        </div>
+
         {matchingPositions.map((pos, idx) => {
           const isBuy = pos.side === 'buy';
           const isProfit = pos.pnl >= 0;
@@ -410,6 +480,24 @@ export function TradingViewChart({
             </React.Fragment>
           );
         })}
+      </div>
+
+      {/* Bottom Range Bar matching Exness/TradingView */}
+      <div className="h-7 bg-[#111417] border-t border-[#1f262b] px-3 flex items-center justify-between text-[11px] text-gray-400 select-none z-20">
+        <div className="flex items-center gap-2">
+          {(['5y', '1y', '6m', '3m', '1m', '5d', '1d'] as const).map(r => (
+            <button key={r} className="hover:text-white transition-colors cursor-pointer px-1 py-0.5">
+              {r}
+            </button>
+          ))}
+          <button className="hover:text-white ml-1 p-0.5">
+            <Calendar className="size-3" />
+          </button>
+        </div>
+        <div className="flex items-center gap-3 font-mono text-[10px]">
+          <span>04:55:51 UTC</span>
+          <span className="text-gray-300 font-bold hover:text-white cursor-pointer">auto</span>
+        </div>
       </div>
     </div>
   );

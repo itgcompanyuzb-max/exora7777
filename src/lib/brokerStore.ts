@@ -36,15 +36,16 @@ export function getContractMultiplier(symbol: string): number {
 }
 
 export const INITIAL_SYMBOLS: ForexSymbolRate[] = [
+  { symbol: 'XAU/USD', name: 'Gold vs US Dollar', category: 'commodities', bid: 4179.507, ask: 4179.675, spread: 0.17, change24h: 0.02, high24h: 4179.885, low24h: 4178.756, digitPrecision: 3 },
+  { symbol: 'USOIL', name: 'Crude Oil WTI', category: 'commodities', bid: 71.45, ask: 71.48, spread: 0.03, change24h: 0.42, high24h: 72.10, low24h: 70.80, digitPrecision: 2 },
   { symbol: 'BTC', name: 'Bitcoin vs US Dollar', category: 'crypto', bid: 79719.47, ask: 79729.47, spread: 10.0, change24h: -0.01, high24h: 79737.27, low24h: 79714.65, digitPrecision: 2 },
+  { symbol: 'EUR/USD', name: 'Euro / US Dollar', category: 'forex', bid: 1.08425, ask: 1.08433, spread: 0.8, change24h: 0.24, high24h: 1.08710, low24h: 1.08150, digitPrecision: 5 },
   { symbol: 'ETH', name: 'Ethereum vs US Dollar', category: 'crypto', bid: 3140.25, ask: 3141.55, spread: 1.3, change24h: 1.15, high24h: 3185.00, low24h: 3110.00, digitPrecision: 2 },
   { symbol: 'BTC/USDT', name: 'Bitcoin / Tether', category: 'crypto', bid: 79720.00, ask: 79725.00, spread: 5.0, change24h: 0.05, high24h: 79750.00, low24h: 79690.00, digitPrecision: 2 },
-  { symbol: 'XAU/USD247', name: 'Gold / US Dollar 24/7', category: 'commodities', bid: 2684.50, ask: 2686.00, spread: 1.5, change24h: 0.85, high24h: 2695.00, low24h: 2670.00, digitPrecision: 2 },
-  { symbol: 'EUR/USD', name: 'Euro / US Dollar', category: 'forex', bid: 1.08425, ask: 1.08433, spread: 0.8, change24h: 0.24, high24h: 1.08710, low24h: 1.08150, digitPrecision: 5 },
+  { symbol: 'XAU/USD247', name: 'Gold / US Dollar 24/7', category: 'commodities', bid: 4179.50, ask: 4179.67, spread: 0.17, change24h: 0.85, high24h: 4185.00, low24h: 4170.00, digitPrecision: 2 },
   { symbol: 'GBP/USD', name: 'Great Britain Pound / USD', category: 'forex', bid: 1.27180, ask: 1.27192, spread: 1.2, change24h: -0.15, high24h: 1.27600, low24h: 1.26900, digitPrecision: 5 },
   { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', category: 'forex', bid: 154.620, ask: 154.629, spread: 0.9, change24h: 0.42, high24h: 155.100, low24h: 154.200, digitPrecision: 3 },
   { symbol: 'USD/CHF', name: 'US Dollar / Swiss Franc', category: 'forex', bid: 0.89510, ask: 0.89522, spread: 1.2, change24h: -0.08, high24h: 0.89800, low24h: 0.89350, digitPrecision: 5 },
-  { symbol: 'XAU/USD', name: 'Gold / US Dollar', category: 'commodities', bid: 2685.40, ask: 2685.75, spread: 3.5, change24h: 1.15, high24h: 2698.00, low24h: 2670.50, digitPrecision: 2 },
   { symbol: 'BTC/USD', name: 'Bitcoin / US Dollar', category: 'crypto', bid: 79719.47, ask: 79729.47, spread: 10.0, change24h: -0.01, high24h: 79737.27, low24h: 79714.65, digitPrecision: 2 },
   { symbol: 'US30', name: 'Wall Street 30 Index', category: 'indices', bid: 43810.0, ask: 43812.5, spread: 2.5, change24h: 0.35, high24h: 44050.0, low24h: 43620.0, digitPrecision: 1 },
   { symbol: 'SOL', name: 'Solana vs US Dollar', category: 'crypto', bid: 154.20, ask: 154.35, spread: 1.5, change24h: 2.45, high24h: 158.00, low24h: 150.00, digitPrecision: 2 },
@@ -267,6 +268,26 @@ const DEFAULT_USERS: BrokerUser[] = [
 ];
 
 const DEFAULT_ACCOUNTS: TradingAccount[] = [
+  // Active Demo Pro account matching Exness screenshot (1,315.31 USD)
+  {
+    id: 'acc_demo_pro_4198205',
+    userId: 'usr_avazjon',
+    accountNumber: '4198205',
+    accountType: 'pro',
+    platform: 'MT5',
+    nickname: 'Pro',
+    currency: 'USD',
+    balance: 1315.31,
+    equity: 1315.31,
+    margin: 0,
+    freeMargin: 1315.31,
+    marginLevel: 0,
+    leverage: 2000,
+    server: 'Exness-Trial',
+    isDemo: true,
+    isArchived: false,
+    createdAt: '2026-03-01T10:00:00Z',
+  },
   // User AVAZJON active account matching image.png
   {
     id: 'acc_3201288',

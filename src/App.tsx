@@ -84,8 +84,9 @@ export default function App() {
     <div className={`min-h-screen bg-[#0e110f] text-[#f4f7f2] font-sans antialiased selection:bg-primary selection:text-black flex flex-col ${activeTab === 'webtrader' ? 'h-screen overflow-hidden' : 'justify-between'}`}>
       <Toaster position="top-right" theme="dark" richColors />
 
-      {/* 2. PRIMARY NAVBAR (Displayed across all sections for fast navigation) */}
-      <header className="sticky top-0 z-40 bg-[#0e110f]/90 backdrop-blur-xl border-b border-white/10">
+      {/* 2. PRIMARY NAVBAR (Displayed across all sections except WebTrader which has full-screen terminal header) */}
+      {activeTab !== 'webtrader' && (
+        <header className="sticky top-0 z-40 bg-[#0e110f]/90 backdrop-blur-xl border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between">
             {/* Brand Logo */}
             <div 
@@ -368,6 +369,7 @@ export default function App() {
             </div>
           )}
         </header>
+      )}
 
       {/* 3. MAIN WORKSPACE CONTAINER */}
       {activeTab === 'cabinet' ? (
@@ -381,7 +383,7 @@ export default function App() {
           />
         </div>
       ) : activeTab === 'webtrader' ? (
-        <div className="flex-1 w-full h-[calc(100vh-4.5rem)] overflow-hidden flex flex-col">
+        <div className="w-full h-screen overflow-hidden flex flex-col">
           <WebTraderView
             lang={lang}
             onOpenDeposit={() => setActiveTab('cabinet')}
