@@ -110,6 +110,9 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
   const [bottomTab, setBottomTab] = useState<'open' | 'pending' | 'closed'>('open');
   const [bottomTrayExpanded, setBottomTrayExpanded] = useState<boolean>(false);
 
+  // Guide & Education Modal
+  const [showGuideModal, setShowGuideModal] = useState<boolean>(false);
+
   // Top header popovers & modals
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -164,7 +167,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
 
   const userPendingOrders = useMemo(() => {
     if (!selectedAccount) return pendingOrders;
-    return pendingOrders.filter(o => o.accountId === selectedAccount.id && o.status === 'pending');
+    return pendingOrders.filter(o => o.accountId === selectedAccount.id && (o.status === 'pending' || (o as any).status === 'active'));
   }, [pendingOrders, selectedAccount]);
 
   const userClosedPositions = useMemo(() => {
@@ -207,6 +210,52 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
       );
     } catch (err: any) {
       toast.error(err.message || "Bitim ochishda xatolik");
+    }
+  }
+
+  // Execute Advanced or Pending Order from Drawer
+  function handlePlaceAdvancedOrder() {
+    if (!selectedAccount) return;
+    try {
+      if (orderExecutionType === 'market') {
+        const price = orderSide === 'buy' ? selectedSymbol.ask : selectedSymbol.bid;
+        brokerStore.openPosition({
+          accountId: selectedAccount.id,
+          symbol: selectedSymbol.symbol,
+          side: orderSide,
+          lotSize: Math.max(0.01, lotSize),
+          sl: sl ? parseFloat(sl) : undefined,
+          tp: tp ? parseFloat(tp) : undefined,
+        });
+        toast.success(
+          `${orderSide.toUpperCase()} bitim ochildi: ${lotSize} lot ${selectedSymbol.symbol} @ ${price}`
+        );
+      } else {
+        const target = parseFloat(targetLimitPrice);
+        if (isNaN(target) || target <= 0) {
+          toast.error("Iltimos, to'g'ri maqsadli narxni kiriting!");
+          return;
+        }
+        const pendingType = orderExecutionType === 'limit'
+          ? (orderSide === 'buy' ? 'buy_limit' : 'sell_limit')
+          : (orderSide === 'buy' ? 'buy_stop' : 'sell_stop');
+
+        brokerStore.createPendingOrder({
+          accountId: selectedAccount.id,
+          symbol: selectedSymbol.symbol,
+          type: pendingType,
+          lotSize: Math.max(0.01, lotSize),
+          targetPrice: target,
+          sl: sl ? parseFloat(sl) : undefined,
+          tp: tp ? parseFloat(tp) : undefined,
+        });
+        toast.success(`${pendingType.toUpperCase()} buyurtma qo'yildi: @ ${target}`);
+        setBottomTab('pending');
+        setBottomTrayExpanded(true);
+      }
+      setShowRightOrderPanel(false);
+    } catch (err: any) {
+      toast.error(err.message || "Buyurtma berishda xatolik");
     }
   }
 
@@ -555,6 +604,15 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
               </div>
             )}
           </div>
+
+          {/* Terminal Savdo Qo'llanmasi (5 Core Features Guide) */}
+          <button 
+            onClick={() => setShowGuideModal(true)}
+            className="p-1.5 rounded-md hover:bg-white/5 text-gray-300 hover:text-[#ffde00] transition-colors cursor-pointer"
+            title="Terminal Savdo Qo'llanmasi (5 asosiy bo'lim)"
+          >
+            <HelpCircle className="size-4" />
+          </button>
 
           {/* Deposit Button: Dark Teal matching Exness */}
           <button 
@@ -980,6 +1038,34 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                     </button>
                   </div>
 
+                  {/* Order Execution Type: Market vs Limit vs Stop */}
+                  <div className="flex items-center gap-1 bg-[#0d1012] p-1 rounded-xl border border-[#22282e]">
+                    <button
+                      onClick={() => setOrderExecutionType('market')}
+                      className={`flex-1 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                        orderExecutionType === 'market' ? 'bg-[#ffde00] text-black shadow-xs' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Bozor (Market)
+                    </button>
+                    <button
+                      onClick={() => setOrderExecutionType('limit')}
+                      className={`flex-1 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                        orderExecutionType === 'limit' ? 'bg-[#ffde00] text-black shadow-xs' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Limit
+                    </button>
+                    <button
+                      onClick={() => setOrderExecutionType('stop')}
+                      className={`flex-1 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                        orderExecutionType === 'stop' ? 'bg-[#ffde00] text-black shadow-xs' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Stop
+                    </button>
+                  </div>
+
                   {/* Buy / Sell Tabs */}
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -999,6 +1085,22 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                       Sell (Sotish)
                     </button>
                   </div>
+
+                  {/* Target Limit/Stop Price if not Market */}
+                  {orderExecutionType !== 'market' && (
+                    <div>
+                      <label className="text-[10px] text-primary uppercase font-bold">
+                        Maqsadli Narx ({orderExecutionType.toUpperCase()} Price)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder={`Joriy: ${selectedSymbol.bid}`}
+                        value={targetLimitPrice}
+                        onChange={e => setTargetLimitPrice(e.target.value)}
+                        className="w-full bg-[#0d1012] border border-primary/40 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                  )}
 
                   {/* Stop-Loss & Take-Profit */}
                   <div className="space-y-2">
@@ -1026,12 +1128,14 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                 </div>
 
                 <button
-                  onClick={() => handleOneClickTrade(orderSide)}
+                  onClick={handlePlaceAdvancedOrder}
                   className={`w-full py-3 rounded-xl font-bold text-xs text-white shadow-lg cursor-pointer ${
                     orderSide === 'buy' ? 'bg-[#1d72f2] hover:bg-[#3282fa]' : 'bg-[#d9383a] hover:bg-[#eb4648]'
                   }`}
                 >
-                  {orderSide.toUpperCase()} {lotSize} Lot {selectedSymbol.symbol}
+                  {orderExecutionType === 'market' 
+                    ? `${orderSide.toUpperCase()} ${lotSize} Lot ${selectedSymbol.symbol}` 
+                    : `${orderSide.toUpperCase()} ${orderExecutionType.toUpperCase()} QO'YISH`}
                 </button>
               </div>
             )}
@@ -1175,15 +1279,108 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
                 )}
 
                 {bottomTab === 'pending' && (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs">
-                    <span>Kutilayotgan buyurtmalar yo'q</span>
-                  </div>
+                  userPendingOrders.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs">
+                      <span>Kutilayotgan buyurtmalar yo'q</span>
+                      <button 
+                        onClick={() => setShowRightOrderPanel(true)}
+                        className="mt-1 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-primary font-bold text-[10px] cursor-pointer"
+                      >
+                        + Yangi Limit / Stop Buyurtma Qo'yish
+                      </button>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left font-mono text-[11px] select-none">
+                      <thead>
+                        <tr className="text-gray-400 border-b border-[#1f262b] pb-1 text-[10px]">
+                          <th className="py-1">Simvol</th>
+                          <th>Turi</th>
+                          <th>Hajm</th>
+                          <th>Kutilayotgan narx</th>
+                          <th>Joriy narx</th>
+                          <th>SL</th>
+                          <th>TP</th>
+                          <th className="text-right">Amal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1f262b]/40">
+                        {userPendingOrders.map(ord => (
+                          <tr key={ord.id} className="hover:bg-white/5 transition-colors">
+                            <td className="py-2 font-bold text-white">{ord.symbol}</td>
+                            <td>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-950 text-amber-400 border border-amber-500/30">
+                                {ord.type.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="text-white font-bold">{ord.lotSize}</td>
+                            <td className="text-primary font-bold">{ord.targetPrice}</td>
+                            <td className="text-gray-300">{ord.currentPrice}</td>
+                            <td className="text-gray-400">{ord.sl || '--'}</td>
+                            <td className="text-gray-400">{ord.tp || '--'}</td>
+                            <td className="text-right">
+                              <button
+                                onClick={() => {
+                                  brokerStore.cancelPendingOrder(ord.id);
+                                  toast.success("Kutilayotgan buyurtma bekor qilindi");
+                                }}
+                                className="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white transition-colors cursor-pointer text-[10px]"
+                              >
+                                Bekor qilish
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
                 )}
 
                 {bottomTab === 'closed' && (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs">
-                    <span>Yopilgan bitimlar tarixi toza</span>
-                  </div>
+                  userClosedPositions.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs">
+                      <span>Yopilgan bitimlar tarixi mavjud emas</span>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left font-mono text-[11px] select-none">
+                      <thead>
+                        <tr className="text-gray-400 border-b border-[#1f262b] pb-1 text-[10px]">
+                          <th className="py-1">Simvol</th>
+                          <th>Turi</th>
+                          <th>Hajm</th>
+                          <th>Ochilgan narx</th>
+                          <th>Yopilgan narx</th>
+                          <th>Yopilgan vaqti</th>
+                          <th className="text-right">Yakuniy Foyda</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1f262b]/40">
+                        {userClosedPositions.map(pos => {
+                          const isProfit = pos.pnl >= 0;
+                          return (
+                            <tr key={pos.id} className="hover:bg-white/5 transition-colors">
+                              <td className="py-2 font-bold text-white">{pos.symbol}</td>
+                              <td>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                  pos.side === 'buy' ? 'bg-blue-950 text-blue-400' : 'bg-red-950 text-red-400'
+                                }`}>
+                                  {pos.side}
+                                </span>
+                              </td>
+                              <td className="text-white font-bold">{pos.lotSize}</td>
+                              <td className="text-gray-300">{pos.openPrice}</td>
+                              <td className="text-white font-bold">{pos.closePrice || pos.currentPrice}</td>
+                              <td className="text-gray-400 text-[10px]">
+                                {pos.closedAt ? new Date(pos.closedAt).toLocaleTimeString() : '--'}
+                              </td>
+                              <td className={`text-right font-bold ${isProfit ? 'text-primary' : 'text-rose-400'}`}>
+                                {isProfit ? '+' : ''}${pos.pnl.toFixed(2)} USD
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )
                 )}
               </div>
             )}
@@ -1207,6 +1404,151 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 4. TERMINAL SAVDO QO'LLANMASI (5 Core Sections Modal)                       */}
+      {/* ========================================================================= */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-[#14181b] border border-[#262c33] rounded-3xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-[#22282e] flex items-center justify-between bg-[#111618]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#ffde00] text-black font-black text-xs flex items-center justify-center">
+                  EX
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-sm">Exness WebTrader — Savdo Qo'llanmasi</h3>
+                  <p className="text-[11px] text-gray-400">Terminalning 5 ta asosiy funksional bo'limi va ularning ishlash mexanizmi</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowGuideModal(false)}
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Modal Content - 5 Sections */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              {/* 1. Asosiy Savdo Maydoni */}
+              <div className="p-4 rounded-2xl bg-[#0f1214] border border-[#22282e] space-y-2">
+                <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                  <span className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-xs">1</span>
+                  <h4>Asosiy Savdo Maydoni (Grafik va Narxlar)</h4>
+                </div>
+                <p className="text-gray-300 leading-relaxed">
+                  Terminalning markaziy qismi <strong>TradingView</strong> jonli grafigiga asoslangan bo'lib, unga barcha texnik indikatorlar va vositalar o'rnatilgan:
+                </p>
+                <ul className="list-disc list-inside text-gray-400 space-y-1 pl-2">
+                  <li><strong className="text-white">Aktiv (Symbol):</strong> Yuqori tablarda qaysi aktiv ochilgani ko'rinadi (masalan, <code>XAU/USD</code> — Oltin va AQSh dollari, <code>USOIL</code>, <code>BTC</code>, <code>EUR/USD</code>).</li>
+                  <li><strong className="text-white">Bid (Sotish narxi):</strong> Bozorning ayni shu lahzada sotishga tayyor bo'lgan narxi.</li>
+                  <li><strong className="text-white">Ask (Sotib olish narxi):</strong> Bozorning ayni shu lahzada sotib olishga tayyor bo'lgan narxi.</li>
+                  <li><strong className="text-white">Spread:</strong> Bid va Ask o'rtasidagi farq (broker komissiyasi).</li>
+                </ul>
+              </div>
+
+              {/* 2. Buy va Sell Tizimi */}
+              <div className="p-4 rounded-2xl bg-[#0f1214] border border-[#22282e] space-y-2">
+                <div className="flex items-center gap-2 text-[#4ade80] font-bold text-sm">
+                  <span className="w-6 h-6 rounded-lg bg-[#4ade80]/20 flex items-center justify-center text-xs">2</span>
+                  <h4>Buy va Sell (Sotib olish va Sotish) Tizimi</h4>
+                </div>
+                <p className="text-gray-300 leading-relaxed">
+                  Pozitsiya ochish uchun grafik ustidagi ikkita asosiy tugma xizmat qiladi:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 rounded-xl bg-red-950/30 border border-red-500/30 space-y-1">
+                    <div className="font-bold text-red-400 flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      Sell (Sotish / Short)
+                    </div>
+                    <p className="text-gray-400 text-[11px]">
+                      Agar narx tushishini kutayotgan bo'lsangiz, shu tugmani bosasiz. Aktivni yuqori narxda sotib, pastroq narxda qaytarib sotib olish orqali foyda ko'rasiz.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-500/30 space-y-1">
+                    <div className="font-bold text-blue-400 flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      Buy (Sotib olish / Long)
+                    </div>
+                    <p className="text-gray-400 text-[11px]">
+                      Agar narx ko'tarilishini kutayotgan bo'lsangiz, shu tugmani bosasiz. Aktivni arzon narxda sotib olib, qimmatlashganda sotish orqali daromad qilasiz.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Lot va One-Click Trading */}
+              <div className="p-4 rounded-2xl bg-[#0f1214] border border-[#22282e] space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                  <span className="w-6 h-6 rounded-lg bg-amber-400/20 flex items-center justify-center text-xs">3</span>
+                  <h4>Lot (Hajm) va One-Click Trading</h4>
+                </div>
+                <ul className="list-disc list-inside text-gray-400 space-y-1 pl-2">
+                  <li><strong className="text-white">Lots (Lot hajmi):</strong> Savdo hajmini belgilaydi. Standart minimal hajm <code>0.01</code> (mikro lot) bo'lib, xatarlarni boshqarish uchun optimaldir.</li>
+                  <li><strong className="text-white">One-click (Bir chertishda savdo):</strong> Ushbu rejimda Sell yoki Buy tugmasi bosilishi bilan ortiqcha so'rovlarsiz order bir lahzada bozorga yuboriladi va grafikda o'z aksini topadi.</li>
+                </ul>
+              </div>
+
+              {/* 4. Hisob Ko'rsatkichlari */}
+              <div className="p-4 rounded-2xl bg-[#0f1214] border border-[#22282e] space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
+                  <span className="w-6 h-6 rounded-lg bg-cyan-400/20 flex items-center justify-center text-xs">4</span>
+                  <h4>Hisob Ko'rsatkichlari (Pastki Panel)</h4>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                    <div className="text-gray-400 text-[10px] uppercase font-bold">Balance</div>
+                    <div className="text-white font-mono font-bold text-xs mt-0.5">Balans</div>
+                    <p className="text-[10px] text-gray-400 mt-1">Ochiq bitimlardan tashqari umumiy depozit.</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                    <div className="text-gray-400 text-[10px] uppercase font-bold">Equity</div>
+                    <div className="text-white font-mono font-bold text-xs mt-0.5">Kapital</div>
+                    <p className="text-[10px] text-gray-400 mt-1">Balans + ochiq pozitsiyalardagi suzuvchi foyda/zarar.</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                    <div className="text-gray-400 text-[10px] uppercase font-bold">Free Margin</div>
+                    <div className="text-white font-mono font-bold text-xs mt-0.5">Erkin Mablag'</div>
+                    <p className="text-[10px] text-gray-400 mt-1">Yangi savdolar ochish uchun ishlatilishi mumkin bo'lgan summa.</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                    <div className="text-gray-400 text-[10px] uppercase font-bold">Margin</div>
+                    <div className="text-white font-mono font-bold text-xs mt-0.5">Garov</div>
+                    <p className="text-[10px] text-gray-400 mt-1">Faol bitimlarni ushlab turish uchun band qilingan summa.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. Buyurtmalar Holati */}
+              <div className="p-4 rounded-2xl bg-[#0f1214] border border-[#22282e] space-y-2">
+                <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
+                  <span className="w-6 h-6 rounded-lg bg-purple-400/20 flex items-center justify-center text-xs">5</span>
+                  <h4>Buyurtmalar Holati (Open, Pending, Closed)</h4>
+                </div>
+                <div className="space-y-1.5 text-gray-400 pl-2">
+                  <div><strong className="text-white">Open (Ochiq):</strong> Ayni paytda bozorda real ishlayotgan faol savdolar (jonli PnL va bitta bosishda yopish imkoniyati bilan).</div>
+                  <div><strong className="text-white">Pending (Kutishdagi):</strong> Narx siz belgilagan chegaraga (Limit yoki Stop) yetgandagina avtomatik tarzda ochiladigan kechiktirilgan buyurtmalar.</div>
+                  <div><strong className="text-white">Closed (Yopilgan):</strong> Yakunlangan savdolar tarixi, yopilgan narxlari va yakuniy foyda/zarar natijalari.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 border-t border-[#22282e] bg-[#111618] flex items-center justify-between">
+              <span className="text-[11px] text-gray-400 font-mono">Exness WebTerminal Core Architecture</span>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                className="px-5 py-2 rounded-xl bg-[#ffde00] hover:opacity-90 text-black font-extrabold text-xs cursor-pointer transition-opacity"
+              >
+                Tushundim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
