@@ -947,91 +947,16 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet }: WebTra
     <div className={`w-full bg-[#0a0d0b] text-[#f4f7f2] flex flex-col font-sans select-none overflow-hidden ${
       isFullscreen ? 'fixed inset-0 z-50 h-screen' : 'h-[calc(100vh-4.5rem)]'
     }`}>
-      {/* Mobile Segmented View Mode Switcher (< lg) */}
-      <div className="lg:hidden flex items-center bg-[#141916] border-b border-white/10 px-2 py-1 gap-1 shrink-0 overflow-x-auto scrollbar-none text-xs">
-        <button
-          onClick={() => setMobileViewTab('chart')}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
-            mobileViewTab === 'chart' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
-          }`}
-        >
-          <TrendingUp className="size-3" />
-          <span>Grafik</span>
-        </button>
-        <button
-          onClick={() => { setMobileViewTab('order'); setRightPanelTab('order'); }}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
-            mobileViewTab === 'order' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
-          }`}
-        >
-          <Zap className="size-3" />
-          <span>Buyurtma</span>
-        </button>
-        <button
-          onClick={() => { setMobileViewTab('dom'); setRightPanelTab('dom'); }}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
-            mobileViewTab === 'dom' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
-          }`}
-        >
-          <Layers className="size-3" />
-          <span>DOM</span>
-        </button>
-        <button
-          onClick={() => { setMobileViewTab('positions'); setRightPanelTab('positions'); }}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition-all text-[11px] cursor-pointer ${
-            mobileViewTab === 'positions' ? 'bg-primary text-black font-extrabold shadow-xs' : 'text-gray-400 hover:text-white bg-white/5'
-          }`}
-        >
-          <BarChart2 className="size-3" />
-          <span>Bitimlar ({userOpenPositions.length})</span>
-        </button>
-      </div>
-
       {/* ========================================================================= */}
       {/* 2. MAIN WORKSPACE: Center Chart + Right Order Execution                    */}
       {/* ========================================================================= */}
       <div className="flex-1 flex overflow-hidden">
         {/* --------------------------------------------------------------------- */}
-        {/* CENTER CHART AREA: TradingView Real-Time Chart or Canvas Chart        */}
+        {/* CENTER CHART AREA: Pure Full-Screen TradingView Terminal              */}
         {/* --------------------------------------------------------------------- */}
         <main className={`flex-1 flex-col min-w-0 bg-[#0a0d0b] relative overflow-hidden ${
           mobileViewTab === 'chart' ? 'flex w-full h-full' : 'hidden lg:flex'
         }`}>
-          {/* Chart Header Bar: Asset Info + Engine Switcher (Exness Pro vs TradingView) + Timeframes + Chart Type + Indicators */}
-          <div className="h-11 border-b border-white/10 px-3 flex items-center justify-between gap-2 bg-[#111613] shrink-0 text-xs z-10">
-            {/* Left: Symbol Title & Live Spread */}
-            <div className="flex items-center gap-2.5">
-              <span className="font-extrabold text-sm text-white tracking-wide">{selectedSymbol.symbol}</span>
-              <span className="text-[11px] text-gray-400 hidden sm:inline">{selectedSymbol.name}</span>
-              <span className="text-[11px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
-                Spred: <strong className="text-primary">{selectedSymbol.spread}</strong> pips
-              </span>
-            </div>
-
-            {/* Middle: TradingView Terminal Active Badge */}
-            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/60 border border-white/15 text-xs">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="font-extrabold text-white tracking-wide">TradingView Terminal</span>
-            </div>
-
-            {/* Right: Timeframe Selector */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10">
-                {(['1m', '5m', '15m', '1h', '4h', '1D'] as TimeFrame[]).map(tf => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition-all cursor-pointer ${
-                      timeframe === tf ? 'bg-primary text-black shadow-xs' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
           {/* Chart Viewport: Pure Official TradingView Terminal */}
           <TradingViewChart
             symbol={selectedSymbol.symbol}
