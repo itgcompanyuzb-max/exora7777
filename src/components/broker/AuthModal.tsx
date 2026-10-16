@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { apiLogin, apiRegister } from '../../lib/api';
+import { startServerSync } from '../../lib/serverSync';
 import { translations, Language } from "../../lib/i18n";
 import { brokerStore } from "../../lib/brokerStore";
 import { 
@@ -69,44 +71,42 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
     }
   }
 
-  function handleRegisterSubmit(e: React.FormEvent) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!otpSent) {
       toast.error("Avval telefoningizga tasdiqlash kodini oling");
       return;
     }
-
+    setBusy(true);
     try {
-      brokerStore.registerUser({
-        fullName,
-        email,
-        phone,
-        password,
-        referralCode: referralCode || undefined,
-      });
-
+      await apiRegister({ fullName, email, phone, password });
+      if (!(await startServerSync())) throw new Error("Serverga ulanib bo'lmadi");
       toast.success("Ro'yxatdan muvaffaqiyatli o'tdingiz! $10,000 lik Demo va Real hisob ochildi.");
       onSuccess?.();
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Ro'yxatdan o'tishda xatolik");
+    } finally {
+      setBusy(false);
     }
   }
 
-  function handleLoginSubmit(e: React.FormEvent) {
+  async function handleLoginSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (step === 'creds') {
-      // Proceed to 2FA step
-      setStep('2fa');
-      toast.info("2FA xavfsizlik kodi so'ralmoqda (Google Authenticator yoki SMS)");
-      setTwoFactorCode("849201"); // Suggested testing code
-      return;
+    setBusy(true);
+    try {
+      await apiLogin(email, password);
+      if (!(await startServerSync())) throw new Error("Serverga ulanib bo'lmadi");
+      toast.success("Tizimga muvaffaqiyatli kirdingiz");
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Kirishda xatolik");
+    } finally {
+      setBusy(false);
     }
-
-    // Complete login with 2FA
-    toast.success("Xavfsiz 2FA tekshiruvidan muvaffaqiyatli o'tildi!");
-    onSuccess?.();
-    onClose();
   }
 
   return (

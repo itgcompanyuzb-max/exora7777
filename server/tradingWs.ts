@@ -1,91 +1,67 @@
 // server/tradingWs.ts
-// Real-time WebSocket Gateway for Quotes, Candlesticks & Order State
-import { Server as HttpServer } from 'http';
+// Authenticated real-time gateway: per-account quotes (tier spreads), P/L, order and account events.
+import type { Server as HttpServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { tradingEngine, SymbolConfig, AccountEntity, PositionEntity } from './tradingEngine.js';
+import { tradingEngine, Account, Order } from './tradingEngine.js';
+import { marketData, Quote } from './marketData.js';
+import { userFromToken, AuthedUser } from './auth.js';
+import { SYMBOL_SPECS } from './symbols.js';
+import { orderView, accountView } from './brokerApi.js';
+
+interface Client {
+  ws: WebSocket;
+  user: AuthedUser | null;
+  symbols: Set<string>;
+}
 
 export function initTradingWebSocket(server: HttpServer) {
   const wss = new WebSocketServer({ server, path: '/ws/trading' });
+  const clients = new Set<Client>();
+  const send = (c: Client, msg: unknown) => c.ws.readyState === WebSocket.OPEN && c.ws.send(JSON.stringify(msg));
+  const accountIds = (c: Client) => (c.user ? new Set(tradingEngine.accountsOf(c.user.id).map((a) => a.id)) : new Set<string>());
 
-  const clientSubs = new Map<WebSocket, Set<string>>();
+  wss.on('connection', (ws, req) => {
+    const url = new URL(req.url || '', 'http://localhost');
+    const user = userFromToken(url.searchParams.get('token') ?? undefined);
+    const client: Client = { ws, user, symbols: new Set(SYMBOL_SPECS.map((s) => s.symbol)) };
+    clients.add(client);
 
-  wss.on('connection', (ws: WebSocket) => {
-    // Default subscription: all instruments
-    const initialSubs = new Set(['XAUUSD', 'EURUSD', 'BTCUSD', 'GBPUSD', 'USDJPY']);
-    clientSubs.set(ws, initialSubs);
+    const accounts = user ? tradingEngine.accountsOf(user.id) : [];
+    send(client, {
+      type: 'INIT_SNAPSHOT', authenticated: !!user, serverTime: Date.now(), feed: marketData.feedMode,
+      symbols: SYMBOL_SPECS.map((s) => ({ ...s, ...marketData.quote(s.symbol) })),
+      accounts: accounts.map(accountView),
+      positions: accounts.flatMap((a) => [...tradingEngine.openOrders(a.id), ...tradingEngine.pendingOrders(a.id)]).map(orderView),
+    });
 
-    // 1. Send initial handshake and state snapshot
-    const defaultAcc = Array.from(tradingEngine.accounts.values())[0];
-    const openPositions = Array.from(tradingEngine.positions.values()).filter((p) => p.status === 'OPEN');
-    const symbolList = Array.from(tradingEngine.symbols.values());
-
-    ws.send(
-      JSON.stringify({
-        type: 'INIT_SNAPSHOT',
-        account: defaultAcc,
-        positions: openPositions,
-        symbols: symbolList,
-        serverTime: Date.now(),
-      })
-    );
-
-    // 2. Client incoming messages
-    ws.on('message', (message: string) => {
+    ws.on('message', (raw) => {
       try {
-        const payload = JSON.parse(message.toString());
-        if (payload.action === 'SUBSCRIBE' && Array.isArray(payload.symbols)) {
-          const current = clientSubs.get(ws) || new Set();
-          payload.symbols.forEach((s: string) => current.add(s.toUpperCase()));
-          clientSubs.set(ws, current);
-        } else if (payload.action === 'REQUEST_CANDLES' && payload.symbol) {
-          const candles = tradingEngine.candles.get(payload.symbol.toUpperCase()) || [];
-          ws.send(
-            JSON.stringify({
-              type: 'CANDLE_HISTORY',
-              symbol: payload.symbol,
-              data: candles,
-            })
-          );
-        }
-      } catch (err) {
-        console.error('Invalid WS payload received:', err);
-      }
+        const m = JSON.parse(raw.toString());
+        if (m.action === 'SUBSCRIBE' && Array.isArray(m.symbols)) client.symbols = new Set(m.symbols.map((s: string) => s.toUpperCase()));
+        else if (m.action === 'PING') send(client, { type: 'PONG', t: Date.now() });
+      } catch { /* ignore malformed frame */ }
     });
-
-    ws.on('close', () => {
-      clientSubs.delete(ws);
-    });
+    ws.on('close', () => clients.delete(client));
+    ws.on('error', () => clients.delete(client));
   });
 
-  // Broadcast ticks from Trading Engine
-  tradingEngine.subscribeTicks((tick: SymbolConfig) => {
-    const payload = JSON.stringify({ type: 'TICK', data: tick });
-    for (const [ws, subs] of clientSubs.entries()) {
-      if (ws.readyState === WebSocket.OPEN && subs.has(tick.symbol)) {
-        ws.send(payload);
-      }
+  // Quotes: anonymous clients get Standard spreads, authenticated ones the spread of their account tier.
+  marketData.onTick((q: Quote) => {
+    for (const c of clients) {
+      if (!c.symbols.has(q.symbol)) continue;
+      const tier = c.user ? tradingEngine.accountsOf(c.user.id).find((a) => !a.isDemo)?.tier ?? 'Standard' : 'Standard';
+      const quote = tier === 'Standard' ? q : marketData.quote(q.symbol, tier)!;
+      send(c, { type: 'TICK', data: { ...quote, symbol: q.symbol } });
     }
   });
 
-  // Broadcast account metrics
-  tradingEngine.subscribeAccountUpdates((acc: AccountEntity) => {
-    const payload = JSON.stringify({ type: 'ACCOUNT_UPDATE', data: acc });
-    for (const [ws] of clientSubs.entries()) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(payload);
-      }
-    }
-  });
+  const toOwners = (accountId: string, msg: unknown) => {
+    for (const c of clients) if (c.user && accountIds(c).has(accountId)) send(c, msg);
+  };
+  tradingEngine.on('account', (a: Account) => toOwners(a.id, { type: 'ACCOUNT_UPDATE', data: accountView(a) }));
+  tradingEngine.on('order', ({ order, event }: { order: Order; event: string }) => toOwners(order.accountId, { type: 'ORDER_EVENT', event, data: orderView(order) }));
+  tradingEngine.on('pnl', (o: Order) => toOwners(o.accountId, { type: 'POSITION_UPDATE', data: orderView(o) }));
+  tradingEngine.on('alert', (a: { accountId: string }) => toOwners(a.accountId, { type: 'ALERT', data: a }));
 
-  // Broadcast position changes
-  tradingEngine.subscribePositionUpdates((pos: PositionEntity) => {
-    const payload = JSON.stringify({ type: 'POSITION_UPDATE', data: pos });
-    for (const [ws] of clientSubs.entries()) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(payload);
-      }
-    }
-  });
-
-  console.log('[WebSocket] Trading WebSocket Server mounted at /ws/trading');
+  console.log('[ws] trading gateway mounted at /ws/trading');
 }

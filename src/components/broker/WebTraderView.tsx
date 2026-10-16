@@ -70,9 +70,14 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
   });
 
   // Active Market Tabs matching screenshot: USOIL, BTC, EUR/USD, XAU/USD
-  const [openMarketTabs, setOpenMarketTabs] = useState<string[]>([
-    'USOIL', 'BTC', 'EUR/USD', 'XAU/USD'
-  ]);
+  const [openMarketTabs, setOpenMarketTabs] = useState<string[]>(() => {
+    const wanted = ['USOIL', 'BTC', 'EUR/USD', 'XAU/USD'];
+    if (!brokerStore.isServerMode()) return wanted;
+    // Server catalogue uses its own names (e.g. BTC/USD): keep the tab set but only with real instruments.
+    const names = new Set(brokerStore.getSymbols().map((x) => x.symbol));
+    const mapped = ['USOIL', 'BTC/USD', 'EUR/USD', 'XAU/USD'].filter((n) => names.has(n));
+    return mapped.length ? mapped : [...names].slice(0, 4);
+  });
 
   const [accounts, setAccounts] = useState<TradingAccount[]>(brokerStore.getAccounts());
   const [selectedAccount, setSelectedAccount] = useState<TradingAccount | undefined>(() => {
@@ -138,12 +143,19 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
       setEconomicEvents(brokerStore.getEconomicEvents());
       const accs = brokerStore.getAccounts();
       setAccounts(accs);
+      if (brokerStore.isServerMode()) {
+        // Server is authoritative: keep the selected symbol/account bound to live server state.
+        const syms = brokerStore.getSymbols();
+        setSelectedSymbol((prev) => syms.find((x) => x.symbol === prev?.symbol) ?? syms.find((x) => x.symbol === 'XAU/USD') ?? syms[0]);
+        setSelectedAccount((prev) => accs.find((a) => a.id === prev?.id) ?? accs.find((a) => a.isDemo) ?? accs[0]);
+      }
     });
     return unsub;
   }, []);
 
   // Update live price simulation for current symbol
   useEffect(() => {
+    if (brokerStore.isServerMode()) return; // prices come from the server feed
     const timer = setInterval(() => {
       setSelectedSymbol(prev => {
         if (!prev) return prev;
@@ -178,18 +190,23 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
     return userOpenPositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
   }, [userOpenPositions]);
 
+  const serverMode = brokerStore.isServerMode();
+
   const currentEquity = useMemo(() => {
+    if (serverMode && selectedAccount) return selectedAccount.equity;
     const bal = selectedAccount?.balance ?? 1315.31;
     return Number((bal + totalFloatingPnl).toFixed(2));
-  }, [selectedAccount, totalFloatingPnl]);
+  }, [selectedAccount, totalFloatingPnl, serverMode]);
 
   const usedMargin = useMemo(() => {
+    if (serverMode && selectedAccount) return selectedAccount.margin;
     return userOpenPositions.reduce((acc, p) => acc + (p.margin || 0), 0);
-  }, [userOpenPositions]);
+  }, [userOpenPositions, selectedAccount, serverMode]);
 
   const freeMargin = useMemo(() => {
+    if (serverMode && selectedAccount) return selectedAccount.freeMargin;
     return Math.max(0, currentEquity - usedMargin);
-  }, [currentEquity, usedMargin]);
+  }, [currentEquity, usedMargin, selectedAccount, serverMode]);
 
   // Web Audio click/chime for trade execution
   function playTradeSound(side: 'buy' | 'sell') {
@@ -1426,7 +1443,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                 <span>Free Margin: <strong className="text-white font-bold">{freeMargin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</strong></span>
                 <span>Balance: <strong className="text-white font-bold">{selectedAccount ? selectedAccount.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '1,315.31'} USD</strong></span>
                 <span>Margin: <strong className="text-white font-bold">{usedMargin.toFixed(2)} USD</strong></span>
-                <span>Margin level: <strong className="text-gray-400">-</strong></span>
+                <span>Margin level: <strong className="text-gray-400">{selectedAccount && selectedAccount.marginLevel > 0 ? `${selectedAccount.marginLevel.toFixed(2)}%` : '-'}</strong></span>
               </div>
 
               {/* Latency / Signal Strength Bars matching screenshot (ılı 6.1.2) */}

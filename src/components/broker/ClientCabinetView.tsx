@@ -1794,13 +1794,19 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                           toast.error("Please select or restore an active account first");
                           return;
                         }
-                        brokerStore.createDeposit({
-                          accountId: depositAccId,
-                          amount: depositAmount,
-                          paymentMethod: depositMethod,
-                          details: { cardMask: cardOrWallet },
-                        });
-                        toast.success(`Deposit of $${depositAmount} successful!`);
+                        try {
+                          const tx = brokerStore.createDeposit({
+                            accountId: depositAccId,
+                            amount: depositAmount,
+                            paymentMethod: depositMethod,
+                            details: { cardMask: cardOrWallet },
+                          });
+                          if (tx.status === 'completed') toast.success(`Deposit of $${depositAmount} successful!`);
+                          else toast.info(`Deposit request for $${depositAmount} created — it will be credited once the payment is confirmed.`);
+                        } catch (err: any) {
+                          toast.error(err?.message || "Deposit error");
+                          return;
+                        }
                         setCurrentNav('accounts');
                       }}
                       className="w-full py-3 rounded-xl bg-[#ffde00] hover:bg-[#f2d200] text-black font-extrabold text-sm shadow-md transition-all"
@@ -1877,7 +1883,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                         paymentMethod: withdrawMethod,
                         details: { destination: withdrawDestination },
                       });
-                      toast.success(`Withdrawal request for $${withdrawAmount} submitted for automated processing!`);
+                      toast.success(`Withdrawal request for $${withdrawAmount} submitted for review.`);
                       setCurrentNav('accounts');
                     } catch (err: any) {
                       toast.error(err?.message || "Withdrawal error");

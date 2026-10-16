@@ -1,234 +1,97 @@
+// server/tradingViewUdf.ts
+// TradingView Universal Data Feed (UDF) backed by the persisted candle store.
 import express from 'express';
-import { tradingEngine, SymbolConfig } from './tradingEngine.js';
+import { marketData } from './marketData.js';
+import { SYMBOL_SPECS, SPEC_BY_SYMBOL, normalizeSymbol, SymbolSpec } from './symbols.js';
 
 export const tradingViewRouter = express.Router();
 
-// 1. /config: Supported configurations for TradingView Charting Library
+const RESOLUTIONS = ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'];
+
+function resolutionToSeconds(r: string): number {
+  if (r === '1D' || r === 'D') return 86400;
+  if (r === '1W' || r === 'W') return 604800;
+  if (r === '1M' || r === 'M') return 2592000;
+  const n = parseInt(r, 10);
+  return Number.isFinite(n) && n > 0 ? n * 60 : 900;
+}
+const tvType = (s: SymbolSpec) =>
+  s.assetClass === 'crypto' ? 'crypto' : s.assetClass === 'index' ? 'index' : s.assetClass === 'metal' || s.assetClass === 'energy' ? 'commodity' : 'forex';
+const session = (s: SymbolSpec) => (s.assetClass === 'crypto' ? '24x7' : '2200-2200:1234567;1');
+
 tradingViewRouter.get('/config', (_req, res) => {
   res.json({
-    supports_search: true,
-    supports_group_request: false,
-    supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
-    supports_marks: false,
-    supports_timescale_marks: false,
-    supports_time: true,
+    supports_search: true, supports_group_request: false, supported_resolutions: RESOLUTIONS,
+    supports_marks: false, supports_timescale_marks: false, supports_time: true,
+    exchanges: [{ value: 'EXORA', name: 'Exora Prime', desc: 'Exora Prime' }],
+    symbols_types: [{ name: 'All', value: '' }, { name: 'Forex', value: 'forex' }, { name: 'Commodity', value: 'commodity' }, { name: 'Crypto', value: 'crypto' }],
   });
 });
 
-// 2. /time: Current Server Time (Unix seconds)
-tradingViewRouter.get('/time', (_req, res) => {
-  res.send(Math.floor(Date.now() / 1000).toString());
-});
+tradingViewRouter.get('/time', (_req, res) => res.type('text/plain').send(String(Math.floor(Date.now() / 1000))));
 
-// Helper to normalize symbol
-function normalizeSymbol(raw: string): string {
-  if (!raw) return 'XAUUSD';
-  let sym = raw.toUpperCase().replace(/[\s\/\-_:]/g, '');
-  if (sym.startsWith('EXORA')) sym = sym.replace('EXORA', '');
-  if (sym.startsWith('FOREX')) sym = sym.replace('FOREX', '');
-  if (sym === 'GOLD' || sym === 'XAU') return 'XAUUSD';
-  if (sym === 'BTC' || sym === 'BITCOIN') return 'BTCUSD';
-  if (sym === 'EUR') return 'EURUSD';
-  if (sym === 'GBP') return 'GBPUSD';
-  if (sym === 'JPY') return 'USDJPY';
-  return sym;
-}
-
-// 3. /symbols: Resolve Symbol Information
 tradingViewRouter.get('/symbols', (req, res) => {
-  const rawSymbol = String(req.query.symbol || 'XAUUSD');
-  const sym = normalizeSymbol(rawSymbol);
-
-  const config = tradingEngine.symbols.get(sym) || tradingEngine.symbols.get('XAUUSD')!;
-  const isJpyOrCryptoOrGold = sym.includes('JPY') || sym.includes('XAU') || sym.includes('BTC');
-  const pricescale = config.digits === 5 ? 100000 : config.digits === 3 ? 1000 : 100;
-
-  const symbolInfo = {
-    name: config.symbol,
-    ticker: config.symbol,
-    description: config.name,
-    type: sym.includes('BTC') ? 'crypto' : sym.includes('XAU') ? 'commodity' : 'forex',
-    session: '24x7',
-    exchange: 'EXORA',
-    listed_exchange: 'EXORA',
-    timezone: 'Etc/UTC',
-    minmov: 1,
-    pricescale,
-    minmove2: 0,
-    fractional: false,
-    has_intraday: true,
-    supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
-    intraday_multipliers: ['1', '5', '15', '30', '60', '240'],
-    has_seconds: false,
-    has_daily: true,
-    has_weekly_and_monthly: true,
-    has_empty_bars: false,
-    has_no_volume: false,
-    volume_precision: 2,
-    data_status: 'streaming',
-  };
-
-  res.json(symbolInfo);
+  const sym = normalizeSymbol(String(req.query.symbol || 'XAUUSD'));
+  const s = SPEC_BY_SYMBOL.get(sym);
+  if (!s) return res.status(404).json({ s: 'error', errmsg: 'Unknown symbol' });
+  res.json({
+    name: s.symbol, ticker: s.symbol, description: s.name, type: tvType(s), session: session(s),
+    exchange: 'EXORA', listed_exchange: 'EXORA', timezone: 'Etc/UTC', minmov: 1, pricescale: Math.pow(10, s.digits),
+    fractional: false, has_intraday: true, supported_resolutions: RESOLUTIONS, intraday_multipliers: ['1', '5', '15', '30', '60', '240'],
+    has_daily: true, has_weekly_and_monthly: true, has_empty_bars: false, has_no_volume: false, volume_precision: 2,
+    data_status: 'streaming', currency_code: 'USD',
+  });
 });
 
-// Helper to convert resolution string to seconds
-function resolutionToSeconds(res: string): number {
-  if (res === '1D' || res === 'D') return 86400;
-  if (res === '1W' || res === 'W') return 604800;
-  if (res === '1M' || res === 'M') return 2592000;
-  const num = parseInt(res, 10);
-  if (isNaN(num)) return 900; // default 15m
-  return num * 60;
-}
-
-// 4. /history: Universal Data Feed Historical Bars (OHLCV)
 tradingViewRouter.get('/history', (req, res) => {
-  try {
-    const rawSymbol = String(req.query.symbol || 'XAUUSD');
-    const sym = normalizeSymbol(rawSymbol);
-    const resolution = String(req.query.resolution || '15');
-    const from = parseInt(String(req.query.from || '0'), 10);
-    const to = parseInt(String(req.query.to || Math.floor(Date.now() / 1000)), 10);
-    const countback = parseInt(String(req.query.countback || '300'), 10);
+  const sym = normalizeSymbol(String(req.query.symbol || ''));
+  if (!SPEC_BY_SYMBOL.has(sym)) return res.json({ s: 'error', errmsg: 'Unknown symbol' });
+  const step = resolutionToSeconds(String(req.query.resolution || '15'));
+  const now = Math.floor(Date.now() / 1000);
+  const to = Math.min(parseInt(String(req.query.to || now), 10) || now, now);
+  const from = parseInt(String(req.query.from || '0'), 10) || 0;
+  const countback = Math.min(5000, parseInt(String(req.query.countback || '0'), 10) || 0);
 
-    const config = tradingEngine.symbols.get(sym) || {
-      symbol: sym,
-      name: `${sym} Pair`,
-      contractSize: 100000,
-      digits: sym.includes('JPY') || sym.includes('XAU') ? 2 : 5,
-      pipSize: 0.0001,
-      bid: 1.0850,
-      ask: 1.0852,
-      spread: 0.0002,
-      high24h: 1.0900,
-      low24h: 1.0800,
-    };
-
-    const stepSec = resolutionToSeconds(resolution);
-    const now = Math.floor(Date.now() / 1000);
-    const alignedTo = Math.floor(Math.min(to, now) / stepSec) * stepSec;
-
-    // Number of bars to generate or return
-    const barsCount = Math.min(1000, Math.max(50, countback || Math.floor((to - from) / stepSec)));
-
-    const t: number[] = [];
-    const o: number[] = [];
-    const h: number[] = [];
-    const l: number[] = [];
-    const c: number[] = [];
-    const v: number[] = [];
-
-    const currentPrice = config.bid;
-    const volatility = currentPrice * 0.0008;
-
-    // Seed deterministic random walk backwards from currentPrice
-    let price = currentPrice - (barsCount * volatility * 0.2);
-
-    for (let i = barsCount; i >= 0; i--) {
-      const barTime = alignedTo - (i * stepSec);
-      if (from && barTime < from && i > 50) continue;
-
-      const delta = (Math.sin(barTime / 3600) + (Math.random() - 0.49)) * volatility * 1.5;
-      const open = price;
-      const close = open + delta;
-      const high = Math.max(open, close) + Math.random() * volatility;
-      const low = Math.min(open, close) - Math.random() * volatility;
-      const volume = Math.floor(20 + Math.random() * 250);
-
-      t.push(barTime);
-      o.push(Number(open.toFixed(config.digits)));
-      h.push(Number(high.toFixed(config.digits)));
-      l.push(Number(low.toFixed(config.digits)));
-      c.push(Number(close.toFixed(config.digits)));
-      v.push(volume);
-
-      price = close;
-    }
-
-    // Ensure the last bar's close reflects current live bid
-    if (c.length > 0) {
-      c[c.length - 1] = currentPrice;
-      h[h.length - 1] = Math.max(h[h.length - 1], currentPrice);
-      l[l.length - 1] = Math.min(l[l.length - 1], currentPrice);
-    }
-
-    if (t.length === 0) {
-      return res.json({ s: 'no_data', nextTime: now });
-    }
-
-    return res.json({
-      s: 'ok',
-      t,
-      o,
-      h,
-      l,
-      c,
-      v,
-    });
-  } catch (err: any) {
-    console.error('[TradingView UDF History Error]', err);
-    return res.status(500).json({ s: 'error', errmsg: err.message });
+  const candles = marketData.getCandles(sym, step, from, to, countback);
+  const inRange = countback ? candles : candles.filter((c) => c.time >= from && c.time <= to);
+  if (inRange.length === 0) {
+    const prev = marketData.getCandles(sym, step, 0, from, 1);
+    return res.json(prev.length ? { s: 'no_data', nextTime: prev[0].time } : { s: 'no_data' });
   }
+  res.json({
+    s: 'ok',
+    t: inRange.map((c) => c.time), o: inRange.map((c) => c.open), h: inRange.map((c) => c.high),
+    l: inRange.map((c) => c.low), c: inRange.map((c) => c.close), v: inRange.map((c) => c.volume),
+  });
 });
 
-// 5. /search: Symbol Search for TradingView
 tradingViewRouter.get('/search', (req, res) => {
-  const query = String(req.query.query || '').toUpperCase();
-  const limit = parseInt(String(req.query.limit || '30'), 10);
-
-  const results: any[] = [];
-  for (const [sym, config] of tradingEngine.symbols.entries()) {
-    if (!query || sym.includes(query) || config.name.toUpperCase().includes(query)) {
-      results.push({
-        symbol: sym,
-        full_name: `EXORA:${sym}`,
-        description: config.name,
-        exchange: 'EXORA',
-        ticker: sym,
-        type: sym.includes('BTC') ? 'crypto' : sym.includes('XAU') ? 'commodity' : 'forex',
-      });
-      if (results.length >= limit) break;
-    }
-  }
-
-  res.json(results);
+  const q = String(req.query.query || '').toUpperCase();
+  const type = String(req.query.type || '');
+  const limit = Math.min(50, parseInt(String(req.query.limit || '30'), 10) || 30);
+  res.json(
+    SYMBOL_SPECS.filter((s) => (!q || s.symbol.includes(q) || s.name.toUpperCase().includes(q)) && (!type || tvType(s) === type))
+      .slice(0, limit)
+      .map((s) => ({ symbol: s.symbol, full_name: `EXORA:${s.symbol}`, description: s.name, exchange: 'EXORA', ticker: s.symbol, type: tvType(s) }))
+  );
 });
 
-// 6. /quotes: Real-Time Quotes Feed for Watchlist and Legend
 tradingViewRouter.get('/quotes', (req, res) => {
-  const rawSymbols = String(req.query.symbols || '');
-  const symList = rawSymbols.split(',').map(s => normalizeSymbol(s.trim())).filter(Boolean);
-
-  const list = symList.length > 0 ? symList : Array.from(tradingEngine.symbols.keys());
-  const data: any[] = [];
-
-  for (const sym of list) {
-    const config = tradingEngine.symbols.get(sym);
-    if (!config) continue;
-
-    const change = config.bid - config.low24h;
-    const changePercent = (change / config.low24h) * 100;
-
-    data.push({
-      s: 'ok',
-      n: `EXORA:${sym}`,
+  const raw = String(req.query.symbols || '');
+  const list = raw ? raw.split(',').map((s) => normalizeSymbol(s.trim())) : SYMBOL_SPECS.map((s) => s.symbol);
+  const d = list.flatMap((sym) => {
+    const spec = SPEC_BY_SYMBOL.get(sym);
+    const q = marketData.quote(sym);
+    if (!spec || !q) return [];
+    const st = marketData.dayStats(sym);
+    return [{
+      s: 'ok', n: `EXORA:${sym}`,
       v: {
-        ch: Number(change.toFixed(config.digits)),
-        chp: Number(changePercent.toFixed(2)),
-        short_name: sym,
-        exchange: 'EXORA',
-        description: config.name,
-        lp: config.bid,
-        ask: config.ask,
-        bid: config.bid,
-        open_price: config.low24h,
-        high_price: config.high24h,
-        low_price: config.low24h,
-        prev_close_price: config.low24h,
-        volume: 50000,
+        ch: Number(st.change.toFixed(spec.digits)), chp: Number(st.changePct.toFixed(2)), short_name: sym, exchange: 'EXORA',
+        description: spec.name, lp: q.mid, ask: q.ask, bid: q.bid, open_price: st.open, high_price: Math.max(st.open, q.mid),
+        low_price: Math.min(st.open, q.mid), prev_close_price: st.open, volume: 0,
       },
-    });
-  }
-
-  res.json({ s: 'ok', d: data });
+    }];
+  });
+  res.json({ s: 'ok', d });
 });

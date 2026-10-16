@@ -9,3 +9,7 @@ coverage/
 bun.lock*
 server/*.js
 server/*.js.map
+data/
+*.db
+*.db-wal
+*.db-shm

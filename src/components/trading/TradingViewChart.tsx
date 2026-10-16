@@ -123,7 +123,7 @@ export function TradingViewChart({
         const widget = new TV.widget({
           container: containerId,
           locale: 'en',
-          library_path: '/charting_library/',
+          library_path: '/charting_library/static/',
           datafeed: new Datafeeds.UDFCompatibleDatafeed(udfUrl),
           symbol: tvSymbol.includes(':') ? tvSymbol.split(':')[1] : tvSymbol,
           interval: tvInterval,
@@ -138,7 +138,7 @@ export function TradingViewChart({
           save_image: false,
           studies_overrides: {},
           disabled_features: ['use_localstorage_for_settings'],
-          enabled_features: ['study_templates'],
+          enabled_features: [],
         });
 
         widgetInstanceRef.current = widget;
@@ -203,11 +203,13 @@ export function TradingViewChart({
     };
   }, [containerId, tvSymbol, tvInterval, theme, chartStyle, key]);
 
-  // Synchronize open positions with ExnessBroker native chart position lines
+  // Synchronize open positions with ExnessBroker native chart position lines (current symbol only)
   useEffect(() => {
+    const here = symbol.replace(/[\s/\-_]/g, '').toUpperCase();
     (positions || []).forEach((p) => {
-      if (p.status === 'open') {
-        exnessBroker.drawPositionOnChart({
+      const same = p.symbol.replace(/[\s/\-_]/g, '').toUpperCase() === here;
+      if (p.status === 'open' && same) {
+        exnessBroker.upsertPosition({
           id: p.id,
           symbol: p.symbol,
           qty: p.side === 'buy' ? p.lotSize : -p.lotSize,
@@ -220,10 +222,10 @@ export function TradingViewChart({
           openedAt: new Date(p.openedAt).getTime(),
         });
       } else {
-        exnessBroker.removeChartLines(p.id);
+        exnessBroker.forgetPosition(p.id);
       }
     });
-  }, [positions]);
+  }, [positions, symbol]);
 
   // Synchronize live market tick to update P/L on native position lines
   useEffect(() => {

@@ -605,7 +605,22 @@ const DEFAULT_AUDIT_LOGS: AuditLogItem[] = [
   }
 ];
 
+/** Routes trading actions to the server when the user is signed in to the live backend. */
+export interface TradeBridge {
+  openPosition(p: { accountId: string; symbol: string; side: 'buy' | 'sell'; lotSize: number; sl?: number; tp?: number; comment?: string }): Position;
+  closePosition(id: string): void;
+  partialClosePosition(id: string, lots: number): void;
+  closeAllPositions(accountId?: string): number;
+  updatePositionSlTp(id: string, sl?: number, tp?: number): void;
+  createPendingOrder(p: { accountId: string; symbol: string; type: PendingOrder['type']; lotSize: number; targetPrice: number; sl?: number; tp?: number }): PendingOrder;
+  cancelPendingOrder(id: string): void;
+  createDeposit(p: { accountId: string; amount: number; paymentMethod: string; details?: any }): Transaction;
+  createWithdrawal(p: { accountId: string; amount: number; paymentMethod: string; details?: any }): Transaction;
+  openAccount(p: { accountType: AccountType; isDemo: boolean; leverage?: number; nickname?: string }): TradingAccount;
+}
+
 class BrokerStoreManager {
+  private bridge: TradeBridge | null = null;
   private users: BrokerUser[] = getStored('users', DEFAULT_USERS);
   private accounts: TradingAccount[] = getStored('accounts', DEFAULT_ACCOUNTS);
   private positions: Position[] = getStored('positions', DEFAULT_POSITIONS);
@@ -694,6 +709,26 @@ class BrokerStoreManager {
     }
   }
 
+  /** Switch to server-authoritative mode: local simulation stops and the bridge owns all state. */
+  attachBridge(bridge: TradeBridge): void {
+    this.bridge = bridge;
+  }
+  isServerMode(): boolean {
+    return this.bridge !== null;
+  }
+  setServerState(state: Partial<{ activeUser: BrokerUser; users: BrokerUser[]; accounts: TradingAccount[]; positions: Position[]; pendingOrders: PendingOrder[]; transactions: Transaction[]; symbols: ForexSymbolRate[] }>): void {
+    if (state.activeUser) { this.activeUser = state.activeUser; this.users = state.users ?? [state.activeUser]; }
+    if (state.accounts) this.accounts = state.accounts;
+    if (state.positions) this.positions = state.positions;
+    if (state.pendingOrders) this.pendingOrders = state.pendingOrders;
+    if (state.transactions) this.transactions = state.transactions;
+    if (state.symbols) this.symbols = state.symbols;
+    this.notify();
+  }
+  private requireLocal(feature: string): void {
+    if (this.bridge) throw new Error(`${feature} serverda hali qo'llab-quvvatlanmaydi`);
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -704,6 +739,7 @@ class BrokerStoreManager {
   }
 
   private tickMarketRates(): void {
+    if (this.bridge) return;
     let changed = false;
     this.symbols = this.symbols.map((sym) => {
       // Small random walk between -0.05% and +0.05%
@@ -812,6 +848,7 @@ class BrokerStoreManager {
   }
 
   private recalculateAccountsEquity(): void {
+    if (this.bridge) return;
     this.accounts = this.accounts.map((acc) => {
       const openPositions = this.positions.filter((p) => p.accountId === acc.id && p.status === 'open');
       const totalPnl = openPositions.reduce((sum, p) => sum + p.pnl, 0);
@@ -912,6 +949,7 @@ class BrokerStoreManager {
   }
 
   createTradingAccount(accountType: 'standard' | 'pro' | 'ecn', isDemo: boolean): TradingAccount {
+    if (this.bridge) return this.bridge.openAccount({ accountType, isDemo });
     const newAcc: TradingAccount = {
       id: `acc_${Date.now()}`,
       userId: this.activeUser.id,
@@ -945,6 +983,7 @@ class BrokerStoreManager {
     tp?: number;
     comment?: string;
   }): Position {
+    if (this.bridge) return this.bridge.openPosition(params);
     const sym = this.symbols.find((s) => s.symbol === params.symbol || s.symbol.replace(/[\s\/-]/g, '') === params.symbol.replace(/[\s\/-]/g, ''));
     // Buy opens at Ask, Sell opens at Bid
     const openPrice = sym ? (params.side === 'buy' ? sym.ask : sym.bid) : 1.08433;
@@ -1002,6 +1041,7 @@ class BrokerStoreManager {
   }
 
   closePosition(positionId: string): void {
+    if (this.bridge) { this.bridge.closePosition(positionId); return; }
     const pos = this.positions.find((p) => p.id === positionId);
     if (!pos || pos.status !== 'open') return;
 
@@ -1025,6 +1065,7 @@ class BrokerStoreManager {
   }
 
   closeAllPositions(accountId?: string): number {
+    if (this.bridge) return this.bridge.closeAllPositions(accountId);
     const openList = this.positions.filter(p => p.status === 'open' && (!accountId || p.accountId === accountId));
     openList.forEach(pos => {
       this.closePosition(pos.id);
@@ -1033,6 +1074,7 @@ class BrokerStoreManager {
   }
 
   partialClosePosition(posId: string, closeLot: number): void {
+    if (this.bridge) { this.bridge.partialClosePosition(posId, closeLot); return; }
     const pos = this.positions.find(p => p.id === posId && p.status === 'open');
     if (!pos) return;
 
@@ -1074,6 +1116,7 @@ class BrokerStoreManager {
   }
 
   updatePositionSlTp(posId: string, sl?: number, tp?: number): void {
+    if (this.bridge) { this.bridge.updatePositionSlTp(posId, sl, tp); return; }
     const pos = this.positions.find(p => p.id === posId && p.status === 'open');
     if (pos) {
       pos.sl = sl;
@@ -1092,6 +1135,7 @@ class BrokerStoreManager {
     sl?: number;
     tp?: number;
   }): PendingOrder {
+    if (this.bridge) return this.bridge.createPendingOrder(params);
     const sym = this.symbols.find(s => s.symbol === params.symbol);
     const newOrder: PendingOrder = {
       id: `pend_${Date.now()}`,
@@ -1114,6 +1158,7 @@ class BrokerStoreManager {
   }
 
   cancelPendingOrder(orderId: string): void {
+    if (this.bridge) { this.bridge.cancelPendingOrder(orderId); return; }
     this.pendingOrders = this.pendingOrders.filter(o => o.id !== orderId);
     setStored('pending_orders', this.pendingOrders);
     this.notify();
@@ -1125,6 +1170,7 @@ class BrokerStoreManager {
     paymentMethod: 'payme' | 'click' | 'uzcard_humo' | 'crypto_usdt';
     details?: any;
   }): Transaction {
+    if (this.bridge) return this.bridge.createDeposit(params);
     const account = this.accounts.find((a) => a.id === params.accountId);
     const tx: Transaction = {
       id: `tx_dep_${Date.now()}`,
@@ -1165,6 +1211,7 @@ class BrokerStoreManager {
     paymentMethod: 'payme' | 'click' | 'uzcard_humo' | 'crypto_usdt' | 'bank_wire';
     details?: any;
   }): Transaction {
+    if (this.bridge) return this.bridge.createWithdrawal(params);
     const account = this.accounts.find((a) => a.id === params.accountId);
     if (!account || account.freeMargin < params.amount) {
       throw new Error("Mablag' yetarli emas yoki erkin marja cheklovi mavjud");
@@ -1379,6 +1426,7 @@ class BrokerStoreManager {
   }
 
   restoreAccount(accountIdOrNumber: string): TradingAccount {
+    this.requireLocal('Hisobni tiklash');
     const acc = this.accounts.find((a) => a.id === accountIdOrNumber || a.accountNumber === accountIdOrNumber);
     if (!acc) {
       throw new Error("Account not found");
@@ -1399,6 +1447,7 @@ class BrokerStoreManager {
   }
 
   archiveAccount(accountIdOrNumber: string): void {
+    this.requireLocal('Hisobni arxivlash');
     const acc = this.accounts.find((a) => a.id === accountIdOrNumber || a.accountNumber === accountIdOrNumber);
     if (!acc) return;
 
@@ -1418,6 +1467,7 @@ class BrokerStoreManager {
     nickname?: string;
     initialBalance?: number;
   }): TradingAccount {
+    if (this.bridge) return this.bridge.openAccount(payload);
     const isDemo = payload.isDemo;
     const initialBal = isDemo ? (payload.initialBalance || 10000) : (payload.initialBalance || 0);
 
@@ -1494,6 +1544,7 @@ class BrokerStoreManager {
     toAccountId: string;
     amount: number;
   }): void {
+    this.requireLocal('Hisoblar orasida o\'tkazma');
     const fromAcc = this.accounts.find(a => a.id === payload.fromAccountId);
     const toAcc = this.accounts.find(a => a.id === payload.toAccountId);
     if (!fromAcc || !toAcc) {
@@ -1550,7 +1601,8 @@ class BrokerStoreManager {
     this.updateBatchLiveRates([{ symbol, ...data }]);
   }
 
-  updateBatchLiveRates(items: Array<{ symbol: string; bid: number; ask: number; high24h?: number; low24h?: number; change24h?: number }>): void {
+  updateBatchLiveRates(items: Array<{ symbol: string; bid: number; ask: number; high24h?: number; low24h?: number; change24h?: number }>, fromServer = false): void {
+    if (this.bridge && !fromServer) return; // browser-side feeds must not override server prices
     let hasChanged = false;
     items.forEach((item) => {
       const symIndex = this.symbols.findIndex((s) => 
@@ -1571,7 +1623,9 @@ class BrokerStoreManager {
       }
     });
 
-    if (hasChanged) {
+    if (hasChanged && this.bridge) {
+      this.notify();
+    } else if (hasChanged) {
       // Recalculate open positions P&L for updated symbols
       this.positions = this.positions.map((pos) => {
         if (pos.status !== 'open') return pos;

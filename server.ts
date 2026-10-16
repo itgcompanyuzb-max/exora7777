@@ -6,7 +6,10 @@ import { createServer as createViteServer } from "vite";
 import { Resend } from "resend";
 import nodemailer, { type Transporter } from "nodemailer";
 import dotenv from "dotenv";
-import { brokerRouter } from "./server/brokerApi.js";
+import { brokerRouter, placeFromBody, modifyFromBody, closeFromBody, orderView } from "./server/brokerApi.js";
+import { requireAuth, requireRole } from "./server/auth.js";
+import { marketData } from "./server/marketData.js";
+import { ensureAdmin } from "./server/bootstrap.js";
 import { initTradingWebSocket } from "./server/tradingWs.js";
 import { tradingViewRouter } from "./server/tradingViewUdf.js";
 import { tradingEngine } from "./server/tradingEngine.js";
@@ -16,7 +19,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 let resendInstance: Resend | null = null;
 function getResendClient(): Resend {
@@ -41,8 +44,19 @@ function getGmailTransporter(): Transporter | null {
 
 
 async function startServer() {
+  ensureAdmin();
+  tradingEngine.start();
+  marketData.start();
   const app = express();
-  app.use(express.json());
+  app.set("trust proxy", 1);
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
+  app.use(express.json({ limit: "200kb" }));
+  // Back-office mail tooling must never be publicly reachable.
+  app.use(["/api/emails", "/api/send-test-email"], requireAuth, requireRole("super_admin"));
   app.use(express.static(path.join(process.cwd(), "public")));
 
   // Forex Broker API v1 router
@@ -52,75 +66,20 @@ async function startServer() {
   app.use("/api/tv", tradingViewRouter);
   app.use("/tv", tradingViewRouter);
 
-  // RESTful standard TradingView / Broker endpoints
-  app.get("/api/positions", (_req, res) => {
-    const list = Array.from(tradingEngine.positions.values()).filter(p => p.status === 'OPEN');
+  // TradingView Broker API endpoints (authenticated, server-authoritative)
+  app.get("/api/positions", requireAuth, (req, res) => {
+    const mine = tradingEngine.accountsOf(req.user!.id);
+    const target = mine.find((a) => a.id === req.query.accountId) ?? mine.find((a) => !a.isDemo && a.balance > 0) ?? mine.find((a) => a.isDemo) ?? mine[0];
+    const list = target ? [...tradingEngine.openOrders(target.id), ...tradingEngine.pendingOrders(target.id)].map(orderView) : [];
     res.json({ success: true, positions: list });
   });
-
-  app.get("/api/orders", (_req, res) => {
-    const list = Array.from(tradingEngine.positions.values());
-    res.json({ success: true, orders: list });
-  });
-
-  app.post("/api/orders", (req, res) => {
-    const { accountId, symbol, type, side, lots, qty, sl, tp } = req.body;
-    const targetAccId = accountId || Array.from(tradingEngine.accounts.keys())[0];
-    const orderSide = (side || type || 'BUY').toUpperCase() as 'BUY' | 'SELL';
-    const lotSize = parseFloat(lots || qty || '0.01');
-
-    const result = tradingEngine.openOrder({
-      accountId: targetAccId,
-      symbol: (symbol || 'XAUUSD').toUpperCase().replace(/[\s\/-]/g, ''),
-      type: orderSide,
-      lots: lotSize,
-      sl: sl ? parseFloat(sl) : undefined,
-      tp: tp ? parseFloat(tp) : undefined,
-    });
-
-    if (!result.success) {
-      return res.status(400).json({ success: false, error: result.error });
-    }
-
-    return res.json({
-      success: true,
-      orderId: result.position?.id,
-      ticket: result.position?.ticket,
-      fillPrice: result.position?.openPrice,
-      status: "filled",
-      position: result.position,
-    });
-  });
-
-  app.put("/api/orders/:id", (req, res) => {
-    const { sl, tp } = req.body;
-    const result = tradingEngine.modifyPosition(
-      req.params.id,
-      sl !== undefined ? parseFloat(sl) : undefined,
-      tp !== undefined ? parseFloat(tp) : undefined
-    );
-    if (!result.success) {
-      return res.status(400).json({ success: false, error: result.error });
-    }
-    return res.json({ success: true, position: result.position });
-  });
-
-  app.delete("/api/orders/:id", (req, res) => {
-    const result = tradingEngine.closePosition(req.params.id, "Client Close");
-    if (!result.success) {
-      return res.status(400).json({ success: false, error: result.error });
-    }
-    return res.json({
-      success: true,
-      message: "Order closed successfully",
-      realizedPnl: result.realizedPnl,
-      newBalance: result.newBalance,
-    });
-  });
+  app.post("/api/orders", requireAuth, placeFromBody);
+  app.put("/api/orders/:id", requireAuth, (req, res) => modifyFromBody(req, res, req.params.id));
+  app.delete("/api/orders/:id", requireAuth, (req, res) => closeFromBody(req, res, req.params.id));
 
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({ status: "ok", timestamp: new Date().toISOString(), priceFeed: marketData.feedMode });
   });
 
   // Telegram Gateway OTP endpoint (@VerificationCodes)
@@ -139,7 +98,7 @@ async function startServer() {
       }
 
       const otpCode = code || Math.floor(100000 + Math.random() * 900000).toString();
-      const token = process.env.TELEGRAM_GATEWAY_TOKEN || "AAHPTAAA_1YQtpEN3y1DdEEPbvTebkGOUwni1ZYUYTrffw";
+      const token = process.env.TELEGRAM_GATEWAY_TOKEN || "";
 
       // Call Telegram Gateway API
       const tgRes = await fetch("https://gatewayapi.telegram.org/sendVerificationMessage", {

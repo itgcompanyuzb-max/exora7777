@@ -12,6 +12,8 @@ import { AdminPortalView } from "./components/broker/AdminPortalView";
 import { MediaCenterView } from "./components/broker/MediaCenterView";
 import { AuthModal } from "./components/broker/AuthModal";
 import { MetaTraderTerminal } from "./components/MetaTraderTerminal";
+import { getToken } from "./lib/api";
+import { startServerSync, signOut } from "./lib/serverSync";
 import { 
   ShieldCheck, 
   TrendingUp, 
@@ -34,15 +36,21 @@ export default function App() {
   const [lang, setLang] = useState<Language>('uz');
   const t = translations[lang];
   const [currentUser, setCurrentUser] = useState<BrokerUser>(brokerStore.getActiveUser());
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('exora_logged_in');
-      return stored !== 'false';
-    } catch {
-      return true;
-    }
-  });
-  const [activeTab, setActiveTab] = useState<'landing' | 'webtrader' | 'metatrader' | 'cabinet' | 'kyc' | 'support' | 'admin' | 'media'>('webtrader');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => !!getToken());
+  // While a stored session is being restored from the server, hold back the UI.
+  const [booting, setBooting] = useState<boolean>(() => !!getToken());
+  const [activeTab, setActiveTab] = useState<'landing' | 'webtrader' | 'metatrader' | 'cabinet' | 'kyc' | 'support' | 'admin' | 'media'>(() => (getToken() ? 'webtrader' : 'landing'));
+
+  useEffect(() => {
+    if (!getToken()) return;
+    startServerSync().then((ok) => {
+      if (!ok) {
+        setIsLoggedIn(false);
+        setActiveTab('landing');
+      }
+      setBooting(false);
+    });
+  }, []);
 
   // Auth Modal State
   const [authOpen, setAuthOpen] = useState(false);
@@ -63,13 +71,8 @@ export default function App() {
   }
 
   function handleLogout() {
-    setIsLoggedIn(false);
-    try {
-      localStorage.setItem('exora_logged_in', 'false');
-    } catch {}
-    setActiveTab('landing');
-    setMobileMenuOpen(false);
     toast.success("Tizimdan muvaffaqiyatli chiqildi");
+    signOut();
   }
 
   function handleAuthSuccess() {
@@ -79,6 +82,14 @@ export default function App() {
     } catch {}
     setActiveTab('cabinet');
     setMobileMenuOpen(false);
+  }
+
+  if (booting) {
+    return (
+      <div className="min-h-screen bg-[#0e110f] text-gray-400 flex items-center justify-center font-mono text-sm">
+        Exora Prime — serverga ulanmoqda…
+      </div>
+    );
   }
 
   return (

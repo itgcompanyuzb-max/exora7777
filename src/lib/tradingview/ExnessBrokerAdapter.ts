@@ -14,6 +14,8 @@
  * 6. Automatic cleanup on position close.
  */
 
+import { authHeaders } from '../api';
+
 // ============================================================================
 // 1. TradingView Broker Types Definition
 // ============================================================================
@@ -54,6 +56,8 @@ export interface PositionData {
   takeProfit?: number;
   unrealizedPl: number;
   realizedPl?: number;
+  /** P/L is supplied by the server; never recompute it locally. */
+  external?: boolean;
   openedAt: number; // Unix timestamp in ms
 }
 
@@ -186,7 +190,7 @@ export class ExnessBrokerAdapter {
       // 1. Send order execution request to Backend OMS
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           symbol: preOrder.symbol,
           type: preOrder.type.toUpperCase(),
@@ -261,7 +265,7 @@ export class ExnessBrokerAdapter {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ sl: stopLoss, tp: takeProfit }),
       });
 
@@ -295,6 +299,7 @@ export class ExnessBrokerAdapter {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       const data = await response.json();
       if (data.success) {
@@ -315,6 +320,7 @@ export class ExnessBrokerAdapter {
     try {
       const response = await fetch(`/api/orders/${positionId}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       const data = await response.json();
       if (!data.success) {
@@ -419,6 +425,7 @@ export class ExnessBrokerAdapter {
       pos.currentPrice = livePrice;
 
       // Calculate PnL: (livePrice - avgPrice) * lotSize * contractSize
+      if (pos.external) continue; // server-authoritative P/L is pushed through upsertPosition
       const priceDiff = isBuy ? livePrice - pos.avgPrice : pos.avgPrice - livePrice;
       const contractSize = posNorm.includes('XAU') ? 100 : posNorm.includes('BTC') ? 1 : 100000;
       const pnl = Number((priceDiff * Math.abs(pos.qty) * contractSize).toFixed(2));
@@ -446,6 +453,32 @@ export class ExnessBrokerAdapter {
   // ==========================================================================
   // 8. TRADING PRIMITIVES: Native Chart Position & Draggable SL/TP Lines
   // ==========================================================================
+
+  /**
+   * Idempotent sync of a server position onto the chart: only redraws lines when price/size/SL/TP
+   * changed, otherwise just refreshes the P/L badge (no flicker on every tick).
+   */
+  public upsertPosition(position: PositionData) {
+    const prev = this._positions.get(position.id);
+    const next: PositionData = { ...position, external: true };
+    this._positions.set(position.id, next);
+    const key = (p: PositionData) => `${p.avgPrice}|${p.qty}|${p.stopLoss ?? ''}|${p.takeProfit ?? ''}`;
+    const lines = this._chartLines.get(position.id);
+    if (!prev || !lines?.positionLine || key(prev) !== key(next)) {
+      this.drawPositionOnChart(next);
+      return;
+    }
+    const pnl = next.unrealizedPl;
+    const isBuy = next.side === 'Buy';
+    lines.positionLine.setText(`${isBuy ? '▲ BUY' : '▼ SELL'} ${Math.abs(next.qty)} (${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} USD)`);
+    lines.positionLine.setBodyBackgroundColor(pnl >= 0 ? '#064e3b' : '#450a0a');
+    lines.positionLine.setBodyBorderColor(pnl >= 0 ? '#10b981' : '#ef4444');
+  }
+
+  public forgetPosition(positionId: string) {
+    this._positions.delete(positionId);
+    this.removeChartLines(positionId);
+  }
 
   /**
    * Draw locked position line using TradingView chart.createPositionLine()
