@@ -232,7 +232,7 @@ export default function App() {
                     <div className="hidden md:flex flex-col text-left">
                       <span className="text-xs font-bold text-white leading-none">{currentUser.fullName}</span>
                       <span className="text-[10px] text-primary font-medium tracking-tight mt-0.5">
-                        {currentUser.role === 'admin' || currentUser.role === 'super_admin' ? 'Administrator' : 'Tasdiqlangan treyder'}
+                        {currentUser.role === 'admin' || currentUser.role === 'super_admin' ? 'Administrator' : (currentUser.kycStatus === 'approved' ? 'Tasdiqlangan treyder' : 'Treyder')}
                       </span>
                     </div>
                   </div>
@@ -510,7 +510,7 @@ export default function App() {
               <strong>Xavf to'g'risida ogohlantirish (Risk Warning):</strong> Forex va CFD (narxlar farqi bo'yicha shartnomalar) marjali vositalar bo'lib, yuqori darajadagi risk bilan bog'liq. Kaldıraç (leverage) ham foydangizni, ham zararingizni bir necha barobar oshirishi mumkin. Savdoni boshlashdan oldin moliyaviy imkoniyatlaringizni to'g'ri baholang va xavflarni to'liq tushunganingizga ishonch hosil qiling.
             </p>
             <p>
-              Exora Prime Financial Services Authority (FSA-SVG) tomonidan litsenziyalangan va xalqaro AML/KYC qoidalariga to'liq amal qiladi. Ro'yxatdan o'tish raqami: 26842 IBC 2024. Barcha mijoz mablag'lari Tier-1 xalqaro banklarida ajratilgan (segregated) hisoblarda saqlanadi.
+              Exora Prime hozircha demo (sinov) rejimida ishlaydi. Litsenziya va ro'yxatdan o'tish ma'lumotlari rasmiy ishga tushirishdan oldin e'lon qilinadi. Haqiqiy mablag' kiritmang.
             </p>
           </div>
 

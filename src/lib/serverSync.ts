@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { brokerStore, TradeBridge } from './brokerStore';
 import { apiFetch, getToken, setToken } from './api';
 import type {
-  AccountType, BrokerUser, ForexSymbolRate, PendingOrder, Position, TradingAccount, Transaction,
+  AccountType, AuditLogItem, BrokerUser, ForexSymbolRate, PendingOrder, Position, TradingAccount, Transaction,
 } from '../types/broker';
 
 interface ServerSymbol {
@@ -32,6 +32,9 @@ class ServerBridge implements TradeBridge {
   private retry = 0;
   private stopped = true;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private adminUsers: BrokerUser[] = [];
+  private adminAudit: AuditLogItem[] = [];
+  private adminTimer: ReturnType<typeof setInterval> | null = null;
 
   // ------------------------------------------------------------ lifecycle
   async start(): Promise<void> {
@@ -50,10 +53,43 @@ class ServerBridge implements TradeBridge {
     await this.refreshTransactions();
     this.flush(true);
     this.connect();
+    if (this.user.role !== 'client') {
+      await this.loadAdmin();
+      this.adminTimer = setInterval(() => this.loadAdmin().catch(() => {}), 10000);
+    }
+  }
+
+  /** Back-office data (users, all transactions, audit) for admin roles. */
+  private async loadAdmin() {
+    const role = this.user?.role;
+    const [u, t, a] = await Promise.all([
+      apiFetch<{ users: any[] }>('/api/v1/admin/users').catch(() => ({ users: [] })),
+      role === 'super_admin' || role === 'finance_admin' ? apiFetch<{ transactions: any[] }>('/api/v1/admin/transactions') : Promise.resolve({ transactions: [] }),
+      role === 'super_admin' || role === 'compliance_admin' ? apiFetch<{ audit: any[] }>('/api/v1/admin/audit') : Promise.resolve({ audit: [] }),
+    ]);
+    this.adminUsers = u.users.map((x) => ({
+      id: x.id, email: x.email, fullName: x.full_name, phone: x.phone ?? undefined, country: 'Uzbekistan', role: x.role, status: x.status,
+      is2faEnabled: false, kycStatus: x.kyc_status, referralCode: '', createdAt: x.created_at,
+    }));
+    this.adminTx = t.transactions.map((x) => ({ ...this.mapTransaction(x), userId: x.user_id, userEmail: x.user_email, userName: x.user_name, accountNumber: x.account_number }));
+    this.adminAudit = a.audit.map((x) => ({
+      id: String(x.id), actorId: x.actor ?? '', actorEmail: x.actor_email ?? x.actor ?? 'anonymous', actorRole: x.actor_role ?? 'client',
+      action: String(x.action).toUpperCase(), targetEntity: '', details: x.detail ?? '', ipAddress: x.ip ?? '', createdAt: x.created_at,
+    }));
+    this.scheduleFlush();
+  }
+  private adminTx: Transaction[] = [];
+
+  adminTransaction(id: string, action: 'approve' | 'reject') {
+    this.fire(apiFetch(`/api/v1/admin/transactions/${id}/${action}`, { body: {} }), () => this.loadAdmin());
+  }
+  adminToggleUser(id: string, status: 'active' | 'suspended') {
+    this.fire(apiFetch(`/api/v1/admin/users/${id}/status`, { body: { status } }), () => this.loadAdmin());
   }
 
   stop() {
     this.stopped = true;
+    if (this.adminTimer) clearInterval(this.adminTimer);
     this.ws?.close();
     this.ws = null;
   }
@@ -197,7 +233,10 @@ class ServerBridge implements TradeBridge {
       accounts: [...this.accounts.values()],
       positions: [...this.open.values(), ...this.history],
       pendingOrders: [...this.pending.values()],
-      transactions: this.transactions,
+      transactions: this.user && this.user.role !== 'client' ? [...this.adminTx, ...this.transactions] : this.transactions,
+      ...(this.user && this.user.role !== 'client' ? { users: this.adminUsers } : {}),
+      auditLogs: this.adminAudit,
+      kycList: [], // KYC document intake is not implemented server-side yet
       symbols: rates,
     });
   }

@@ -184,7 +184,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
   // Live chat messages
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'bot' | 'user'; text: string; time: string }>>([
-    { sender: 'bot', text: 'Hello AVAZJON! Welcome to Exora 24/7 Support Desk. How can we assist you today with your trading accounts or verification?', time: '10:00' }
+    { sender: 'bot', text: 'Hello! Welcome to Exora 24/7 Support Desk. How can we assist you today with your trading accounts or verification?', time: '10:00' }
   ]);
   const [chatInput, setChatInput] = useState('');
 
@@ -291,7 +291,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
     setChatInput('');
 
     setTimeout(() => {
-      let reply = "Thank you for reaching out, AVAZJON. A dedicated support agent has been notified and will assist you shortly.";
+      let reply = "Thank you for reaching out. A dedicated support agent has been notified and will assist you shortly.";
       if (userMsg.toLowerCase().includes('address') || userMsg.toLowerCase().includes('residence') || userMsg.toLowerCase().includes('kyc')) {
         reply = "Regarding address verification: Please make sure your utility bill or bank statement has been issued within the last 6 months, displays your full name AVAZJON and residential address clearly. You can upload it via the 'Complete' button in your Personal Area.";
       } else if (userMsg.toLowerCase().includes('restore') || userMsg.toLowerCase().includes('archive')) {
@@ -305,6 +305,12 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
   // Theme styling helpers
   const isDark = cabinetTheme === 'dark';
+
+  // `dark:` utilities follow the <html> class, so keep it in sync with the cabinet theme toggle.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    return () => document.documentElement.classList.add('dark');
+  }, [isDark]);
   const bgMain = isDark ? 'bg-[#0f1210] text-[#f4f7f2]' : 'bg-[#f7f9fb] text-[#1a1e24]';
   const bgCard = isDark ? 'bg-[#181c19] border-white/10' : 'bg-white border-[#e6eaf0]';
   const bgHeader = isDark ? 'bg-[#131714]/95 border-white/10' : 'bg-white border-[#e6eaf0]';
@@ -333,7 +339,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
         {/* Right Header Controls */}
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* 1. Interactive Balance Display with Exness-style Quick Actions Popover */}
+          {/* 1. Interactive Balance Display with Exora Prime-style Quick Actions Popover */}
           <div className="relative" ref={balanceDropdownRef}>
             <button
               onClick={() => setShowBalanceDropdown(!showBalanceDropdown)}
@@ -350,7 +356,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               <ChevronDown className={`size-3.5 text-gray-400 transition-transform duration-200 ${showBalanceDropdown ? 'rotate-180 text-[#ffde00]' : ''}`} />
             </button>
 
-            {/* Balance Dropdown Popover (Exness Style) */}
+            {/* Balance Dropdown Popover (Exora Prime Style) */}
             {showBalanceDropdown && (
               <div className="absolute right-0 mt-2.5 w-80 sm:w-88 rounded-2xl shadow-2xl border p-4 sm:p-5 z-50 animate-in fade-in zoom-in-95 duration-150 bg-white dark:bg-[#181a20] border-gray-200 dark:border-[#2b313d] text-gray-900 dark:text-white">
                 {/* 3 Circular Action Buttons: Deposit, Withdrawal, Transfer */}
@@ -956,7 +962,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 </div>
               )}
 
-              {/* TOP PROMO BANNER (Exness all-in-one trading platform) */}
+              {/* TOP PROMO BANNER (Exora Prime all-in-one trading platform) */}
               <div className="rounded-2xl border border-amber-300/40 dark:border-amber-500/20 bg-gradient-to-r from-amber-100/70 via-amber-50/40 to-white dark:from-amber-950/30 dark:via-black/20 dark:to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
                 <div className="flex items-center gap-3.5">
                   <div className="w-11 h-11 rounded-2xl bg-[#ffde00] text-black flex items-center justify-center font-black shadow-sm shrink-0">
@@ -1312,7 +1318,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 <span className="font-bold text-gray-900 dark:text-white">365</span>
               </div>
 
-              {/* 6 Key Stat Cards matching Exness Summary */}
+              {/* 6 Key Stat Cards matching Exora Prime Summary */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* 1. Net profit */}
                 <div className={`p-5 rounded-2xl border ${bgCard} space-y-2`}>
@@ -2122,12 +2128,12 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           <footer className="mt-14 pt-8 border-t border-gray-200 dark:border-white/10 space-y-6 text-xs text-gray-500 dark:text-gray-400">
             {/* 1. Registration & Licensing Text */}
             <p className="leading-relaxed">
-              <strong>Exness (SC) LTD</strong> is a Securities Dealer registered in Seychelles with registration number <strong>8423606-1</strong> and authorised by the Financial Services Authority (FSA) with licence number <strong>SD025</strong>. The registered office of Exness (SC) LTD is at 9A CT House, 2nd floor, Providence, Mahe, Seychelles.
+              <strong>Exora Prime</strong> is currently operating in demo / pre-licensing mode. Company registration and licence details will be published here once the licensing process is complete. Do not deposit real funds until then.
             </p>
 
             {/* 2. Risk Warning & Copyright Notice */}
             <p className="leading-relaxed">
-              The information on this website may only be copied with the express written permission of Exness. <strong>General Risk Warning:</strong> CFDs are leveraged products. Trading in CFDs carries a high level of risk thus may not be appropriate for all investors. The investment value can both increase and decrease and the investors may lose all their invested capital. Under no circumstances shall the Company have any liability to any person or entity for any loss or damage in whole or part caused by, resulting from, or relating to any transactions related to CFDs.{' '}
+              The information on this website may only be copied with the express written permission of Exora Prime. <strong>General Risk Warning:</strong> CFDs are leveraged products. Trading in CFDs carries a high level of risk thus may not be appropriate for all investors. The investment value can both increase and decrease and the investors may lose all their invested capital. Under no circumstances shall the Company have any liability to any person or entity for any loss or damage in whole or part caused by, resulting from, or relating to any transactions related to CFDs.{' '}
               <button 
                 onClick={() => setLegalModalType('risk')} 
                 className="text-[#0284c7] dark:text-[#38bdf8] font-semibold underline hover:opacity-80 inline cursor-pointer"
@@ -2142,7 +2148,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 PCI DSS
               </div>
               <p className="text-[11px] leading-relaxed">
-                Exness complies with the <strong>Payment Card Industry Data Security Standard (PCI DSS)</strong> to ensure your security and privacy. We conduct regular vulnerability scans and penetration tests in accordance with the PCI DSS requirements for our business model.
+                Exora Prime complies with the <strong>Payment Card Industry Data Security Standard (PCI DSS)</strong> to ensure your security and privacy. We conduct regular vulnerability scans and penetration tests in accordance with the PCI DSS requirements for our business model.
               </p>
             </div>
 
@@ -2189,7 +2195,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
             {/* 5. Copyright, Version, 0, Aug */}
             <div className="pt-4 border-t border-gray-100 dark:border-white/10 flex flex-wrap items-center justify-between gap-4 text-[11px] text-gray-400">
               <div className="flex items-center gap-2">
-                <span>&copy; 2008 - 2026. Exness</span>
+                <span>&copy; 2008 - 2026. Exora Prime</span>
               </div>
               <div className="flex items-center gap-3 font-mono text-[11px]">
                 <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-bold">
@@ -2387,7 +2393,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 <p>&bull; Utility bill (electricity, water, landline telephone, gas)</p>
                 <p>&bull; Municipal tax bill or government registry certificate</p>
               </div>
-              <p>Documents must have been issued within the last 6 calendar months and display the full name <strong>AVAZJON</strong> with complete street address.</p>
+              <p>Documents must have been issued within the last 6 calendar months and display the full name <strong>{currentUser.fullName}</strong> with complete street address.</p>
             </div>
             <button
               onClick={() => { setShowLearnMoreModal(false); setShowAddressModal(true); }}
@@ -2805,7 +2811,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   {legalModalType === 'contact' && 'Contact & Registered Office'}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Official Legal Document &bull; Exness (SC) LTD &bull; FSA Licence SD025
+                  Official Legal Document &bull; Exora Prime &bull; [Licence details pending]
                 </p>
               </div>
               <button 
@@ -2821,10 +2827,10 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'agreement' && (
                 <>
                   <p>
-                    <strong>1. Scope of Agreement:</strong> This Client Agreement is entered into between Exness (SC) LTD ("Company"), a Securities Dealer registered in Seychelles (Reg. 8423606-1, FSA Licence SD025), and the client ("Trader").
+                    <strong>1. Scope of Agreement:</strong> This Client Agreement is entered into between Exora Prime ("Company") and the client ("Trader") [final legal entity and licence details to be inserted before launch].
                   </p>
                   <p>
-                    <strong>2. Segregated Client Funds:</strong> All client balances and operational margins are kept in segregated Tier-1 banking accounts, strictly isolated from the Company's operational funds.
+                    <strong>2. Client Funds:</strong> [Client money safeguarding policy to be inserted before launch] Client balances are intended to be kept in segregated bank accounts, strictly isolated from the Company's operational funds.
                   </p>
                   <p>
                     <strong>3. Order Execution:</strong> Orders are executed via electronic communications network (ECN) and market makers at prevailing market Bid/Ask quotes with negative balance protection.
@@ -2874,7 +2880,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'confidentiality' && (
                 <>
                   <p>
-                    <strong>1. Confidentiality Obligation:</strong> Exness maintains absolute confidentiality regarding client account transactions, personal data, and trading strategies.
+                    <strong>1. Confidentiality Obligation:</strong> Exora Prime maintains absolute confidentiality regarding client account transactions, personal data, and trading strategies.
                   </p>
                   <p>
                     <strong>2. Non-Disclosure:</strong> No confidential client information is disclosed to non-affiliated commercial entities under any circumstances.
@@ -2885,7 +2891,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'key_facts' && (
                 <>
                   <p>
-                    <strong>1. Entity:</strong> Exness (SC) LTD, authorized and regulated by the Seychelles Financial Services Authority (FSA).
+                    <strong>1. Entity:</strong> Exora Prime [regulatory status to be inserted before launch].
                   </p>
                   <p>
                     <strong>2. Products:</strong> Contracts for Difference (CFDs) on Forex, Metals, Cryptocurrencies, Energies, Indices, and Stocks.
@@ -2899,7 +2905,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'conflicts' && (
                 <>
                   <p>
-                    <strong>1. Conflict Management:</strong> Exness takes all reasonable steps to prevent and manage conflicts of interest between the Company, affiliates, and clients.
+                    <strong>1. Conflict Management:</strong> Exora Prime takes all reasonable steps to prevent and manage conflicts of interest between the Company, affiliates, and clients.
                   </p>
                   <p>
                     <strong>2. Best Execution Policy:</strong> Systematic order routing ensures competitive execution without preferential treatment.
@@ -2910,7 +2916,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'privacy' && (
                 <>
                   <p>
-                    <strong>1. Data Collection & GDPR:</strong> Exness collects verified identifying documents and contact credentials exclusively to fulfill legal KYC and security requirements.
+                    <strong>1. Data Collection & GDPR:</strong> Exora Prime collects verified identifying documents and contact credentials exclusively to fulfill legal KYC and security requirements.
                   </p>
                   <p>
                     <strong>2. Encryption Standards:</strong> AES-256 and TLS 1.3 protocol encryption protect all stored biometric data, documents, and transactional records.
@@ -2938,7 +2944,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'aml' && (
                 <>
                   <p>
-                    <strong>1. Anti-Money Laundering (AML):</strong> Exness strictly adheres to Financial Action Task Force (FATF) standards and FSA Anti-Money Laundering legislation.
+                    <strong>1. Anti-Money Laundering (AML):</strong> Exora Prime strictly adheres to Financial Action Task Force (FATF) standards and FSA Anti-Money Laundering legislation.
                   </p>
                   <p>
                     <strong>2. Source of Funds:</strong> All deposits and withdrawals must be made using payment methods registered in the account holder's legal name. Third-party transfers are prohibited.
@@ -2949,7 +2955,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {legalModalType === 'complaints' && (
                 <>
                   <p>
-                    <strong>1. Submitting a Complaint:</strong> Clients may submit formal complaints via email to compliance@exness.com or through customer support tickets.
+                    <strong>1. Submitting a Complaint:</strong> Clients may submit formal complaints via email to compliance@exora-prime.example or through customer support tickets.
                   </p>
                   <p>
                     <strong>2. Resolution Timeframe:</strong> Complaints receive preliminary acknowledgment within 24 hours and formal resolution within 5 business days.
@@ -2967,15 +2973,15 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                     </div>
                     <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 space-y-1">
                       <div className="text-[11px] text-muted-foreground uppercase font-mono font-bold">Official Inquiries:</div>
-                      <div className="font-bold text-gray-900 dark:text-white">support@exness.com</div>
-                      <div className="text-[11px] text-muted-foreground">compliance@exness.com</div>
+                      <div className="font-bold text-gray-900 dark:text-white">support@exora-prime.example</div>
+                      <div className="text-[11px] text-muted-foreground">compliance@exora-prime.example</div>
                     </div>
                   </div>
 
                   <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 space-y-1">
                     <div className="text-[11px] text-muted-foreground uppercase font-mono font-bold">Registered Office:</div>
                     <div className="text-gray-900 dark:text-white font-medium">
-                      Exness (SC) LTD, 9A CT House, 2nd floor, Providence, Mahe, Seychelles.
+                      [Registered office address to be inserted]
                     </div>
                     <div className="text-[11px] text-muted-foreground">Securities Dealer Licence SD025 &bull; Reg: 8423606-1</div>
                   </div>

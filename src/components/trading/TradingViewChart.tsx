@@ -137,7 +137,7 @@ export function TradingViewChart({
           allow_symbol_change: true,
           save_image: false,
           studies_overrides: {},
-          disabled_features: ['use_localstorage_for_settings'],
+          disabled_features: ['use_localstorage_for_settings', 'create_volume_indicator_by_default'],
           enabled_features: [],
         });
 
@@ -480,8 +480,8 @@ export function TradingViewChart({
         })}
       </div>
 
-      {/* Bottom Range Bar matching Exness/TradingView */}
-      <div className="h-7 bg-[#111417] border-t border-[#1f262b] px-3 flex items-center justify-between text-[11px] text-gray-400 select-none z-20">
+      {/* Fallback range bar: the Charting Library already renders its own */}
+      <div className={`${activeEngine === 'library' ? 'hidden' : ''} h-7 bg-[#111417] border-t border-[#1f262b] px-3 flex items-center justify-between text-[11px] text-gray-400 select-none z-20`}>
         <div className="flex items-center gap-2">
           {(['5y', '1y', '6m', '3m', '1m', '5d', '1d'] as const).map(r => (
             <button key={r} className="hover:text-white transition-colors cursor-pointer px-1 py-0.5">

@@ -115,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ onBackToCabinet, onSwitchToWebTr
           <button
             onClick={onSwitchToWebTrader}
             className="px-2.5 py-1 rounded bg-[#ffde00]/20 hover:bg-[#ffde00]/30 text-[#ffde00] border border-[#ffde00]/40 font-bold text-[10px] cursor-pointer transition-colors"
-            title="Exness WebTrader terminaliga o'tish"
+            title="Exora WebTrader terminaliga o'tish"
           >
             WebTrader
           </button>

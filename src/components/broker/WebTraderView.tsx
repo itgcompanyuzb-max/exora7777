@@ -89,7 +89,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>(brokerStore.getPendingOrders());
   const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>(brokerStore.getEconomicEvents());
 
-  // Chart Controls matching Exness
+  // Chart Controls matching Exora
   const [timeframe, setTimeframe] = useState<TimeFrame>('1m');
   const [chartStyle, setChartStyle] = useState<ChartStyleType>('candles');
   const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
@@ -194,7 +194,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
 
   const currentEquity = useMemo(() => {
     if (serverMode && selectedAccount) return selectedAccount.equity;
-    const bal = selectedAccount?.balance ?? 1315.31;
+    const bal = selectedAccount?.balance ?? 0;
     return Number((bal + totalFloatingPnl).toFixed(2));
   }, [selectedAccount, totalFloatingPnl, serverMode]);
 
@@ -330,16 +330,16 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
     <div className="w-full h-screen bg-[#111417] text-[#f4f7f2] flex flex-col font-sans select-none overflow-hidden text-xs">
       
       {/* ========================================================================= */}
-      {/* 1. TOP HEADER BAR (Exact 1:1 replica of Exness WebTrader)                   */}
+      {/* 1. TOP HEADER BAR (Exact 1:1 replica of Exora WebTrader)                   */}
       {/* ========================================================================= */}
       <header className="h-11 bg-[#111618] border-b border-[#1f262b] px-2 flex items-center justify-between shrink-0 z-30 select-none">
-        {/* Left: Yellow Exness Logo + Market Tabs */}
+        {/* Left: Yellow Exora Logo + Market Tabs */}
         <div className="flex items-center h-full overflow-x-auto scrollbar-none gap-1">
-          {/* Yellow Exness 'ex' Logo */}
+          {/* Yellow Exora 'ex' Logo */}
           <div 
             onClick={() => onReturnToCabinet ? onReturnToCabinet() : onOpenDeposit()}
             className="flex items-center gap-1.5 cursor-pointer mr-2 shrink-0 group"
-            title="Exness Terminal Boshqaruv Paneli"
+            title="Exora Terminal Boshqaruv Paneli"
           >
             <div className="w-7 h-7 rounded-lg bg-[#ffde00] group-hover:scale-105 transition-transform flex items-center justify-center font-black text-black text-xs tracking-tighter shadow-sm select-none">
               ex
@@ -561,7 +561,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
             <button 
               onClick={() => setShowAppMenu(!showAppMenu)}
               className="p-1.5 rounded-md hover:bg-white/5 text-gray-300 hover:text-white transition-colors cursor-pointer"
-              title="Exness Ilovalari"
+              title="Exora Ilovalari"
             >
               <Grid className="size-4" />
             </button>
@@ -620,8 +620,8 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                     EX
                   </div>
                   <div>
-                    <div className="font-bold text-white text-xs">Avazjon Ergashev</div>
-                    <div className="text-[10px] text-gray-400">VIP Pro Treyder</div>
+                    <div className="font-bold text-white text-xs">{brokerStore.getActiveUser().fullName}</div>
+                    <div className="text-[10px] text-gray-400">{brokerStore.getActiveUser().email}</div>
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -665,7 +665,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
             </button>
           )}
 
-          {/* Deposit Button: Dark Teal matching Exness */}
+          {/* Deposit Button: Dark Teal matching Exora */}
           <button 
             onClick={onOpenDeposit}
             className="px-3.5 py-1.5 rounded-md bg-[#18373b] hover:bg-[#20494f] text-[#b6e3e9] border border-[#26555c] text-xs font-bold transition-all shadow-xs cursor-pointer"
@@ -820,11 +820,11 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           
           {/* ========================================================================= */}
-          {/* CHART TOP TOOLBAR (Matching Exness layout 1:1)                             */}
+          {/* CHART TOP TOOLBAR (Matching Exora layout 1:1)                             */}
           {/* ========================================================================= */}
           <div className="h-10 bg-[#111618] border-b border-[#1f262b] px-2.5 flex items-center justify-between gap-2 shrink-0 z-20 text-xs">
-            {/* Left Tools: [+], [1m], [Candles], [fx Indicators], [Grid], Undo, Redo, Save, Camera, Fullscreen */}
-            <div className="flex items-center gap-1.5">
+            {/* Left Tools: the TradingView Charting Library renders its own toolbar, so hide this duplicate */}
+            <div className={`${serverMode ? 'hidden' : 'flex'} items-center gap-1.5`}>
               {/* Compare (+) */}
               <button 
                 onClick={() => setShowSymbolPicker(true)}
@@ -1193,7 +1193,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
           </div>
 
           {/* ========================================================================= */}
-          {/* 3. BOTTOM POSITIONS TRAY (Matching Exness screenshot 1:1)                  */}
+          {/* 3. BOTTOM POSITIONS TRAY (Matching Exora screenshot 1:1)                  */}
           {/* ========================================================================= */}
           <div className="bg-[#111618] border-t border-[#1f262b] flex flex-col shrink-0 z-20">
             {/* Header Tabs: Open, Pending, Closed, and collapse chevron ^ */}
@@ -1469,7 +1469,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                   EX
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-white text-sm">Exness WebTrader — Savdo Qo'llanmasi</h3>
+                  <h3 className="font-extrabold text-white text-sm">Exora WebTrader — Savdo Qo'llanmasi</h3>
                   <p className="text-[11px] text-gray-400">Terminalning 5 ta asosiy funksional bo'limi va ularning ishlash mexanizmi</p>
                 </div>
               </div>
@@ -1589,7 +1589,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
 
             {/* Modal Footer */}
             <div className="px-6 py-3.5 border-t border-[#22282e] bg-[#111618] flex items-center justify-between">
-              <span className="text-[11px] text-gray-400 font-mono">Exness WebTerminal Core Architecture</span>
+              <span className="text-[11px] text-gray-400 font-mono">Exora WebTerminal Core Architecture</span>
               <button
                 onClick={() => setShowGuideModal(false)}
                 className="px-5 py-2 rounded-xl bg-[#ffde00] hover:opacity-90 text-black font-extrabold text-xs cursor-pointer transition-opacity"

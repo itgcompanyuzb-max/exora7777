@@ -294,10 +294,10 @@ admin.post('/users/:id/kyc', requireRole('super_admin', 'compliance_admin'), (re
 
 admin.get('/transactions', requireRole('super_admin', 'finance_admin'), (req, res) => {
   const status = req.query.status ? String(req.query.status) : null;
-  const rows = status
-    ? db.prepare('SELECT * FROM transactions WHERE status = ? ORDER BY created_at DESC LIMIT 500').all(status)
-    : db.prepare('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 500').all();
-  res.json({ success: true, transactions: rows });
+  const sql = `SELECT t.*, u.id AS user_id, u.email AS user_email, u.full_name AS user_name, a.account_number
+    FROM transactions t JOIN accounts a ON a.id = t.account_id JOIN users u ON u.id = a.user_id
+    ${status ? 'WHERE t.status = ?' : ''} ORDER BY t.created_at DESC LIMIT 500`;
+  res.json({ success: true, transactions: status ? db.prepare(sql).all(status) : db.prepare(sql).all() });
 });
 admin.post('/transactions/:id/:action', requireRole('super_admin', 'finance_admin'), (req, res) => {
   const t = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id) as any;
@@ -328,6 +328,6 @@ admin.post('/accounts/:id/adjust', requireRole('super_admin', 'finance_admin'), 
 admin.get('/accounts', (_req, res) => res.json({ success: true, accounts: [...tradingEngine.accounts.values()].map(accountView) }));
 admin.get('/positions', (_req, res) => res.json({ success: true, positions: tradingEngine.openOrders().map(orderView) }));
 admin.get('/audit', requireRole('super_admin', 'compliance_admin'), (_req, res) =>
-  res.json({ success: true, audit: db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT 500').all() }));
+  res.json({ success: true, audit: db.prepare('SELECT a.*, u.email AS actor_email, u.role AS actor_role FROM audit a LEFT JOIN users u ON u.id = a.actor ORDER BY a.id DESC LIMIT 500').all() }));
 
 brokerRouter.use('/admin', admin);

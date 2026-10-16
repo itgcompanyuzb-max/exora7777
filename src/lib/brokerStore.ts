@@ -617,6 +617,8 @@ export interface TradeBridge {
   createDeposit(p: { accountId: string; amount: number; paymentMethod: string; details?: any }): Transaction;
   createWithdrawal(p: { accountId: string; amount: number; paymentMethod: string; details?: any }): Transaction;
   openAccount(p: { accountType: AccountType; isDemo: boolean; leverage?: number; nickname?: string }): TradingAccount;
+  adminTransaction(id: string, action: 'approve' | 'reject'): void;
+  adminToggleUser(id: string, status: 'active' | 'suspended'): void;
 }
 
 class BrokerStoreManager {
@@ -716,13 +718,16 @@ class BrokerStoreManager {
   isServerMode(): boolean {
     return this.bridge !== null;
   }
-  setServerState(state: Partial<{ activeUser: BrokerUser; users: BrokerUser[]; accounts: TradingAccount[]; positions: Position[]; pendingOrders: PendingOrder[]; transactions: Transaction[]; symbols: ForexSymbolRate[] }>): void {
-    if (state.activeUser) { this.activeUser = state.activeUser; this.users = state.users ?? [state.activeUser]; }
+  setServerState(state: Partial<{ activeUser: BrokerUser; users: BrokerUser[]; accounts: TradingAccount[]; positions: Position[]; pendingOrders: PendingOrder[]; transactions: Transaction[]; symbols: ForexSymbolRate[]; auditLogs: AuditLogItem[]; kycList: KycRecord[] }>): void {
+    if (state.activeUser) { this.activeUser = state.activeUser; this.users = [state.activeUser]; }
+    if (state.users) this.users = state.users;
     if (state.accounts) this.accounts = state.accounts;
     if (state.positions) this.positions = state.positions;
     if (state.pendingOrders) this.pendingOrders = state.pendingOrders;
     if (state.transactions) this.transactions = state.transactions;
     if (state.symbols) this.symbols = state.symbols;
+    if (state.auditLogs) this.auditLogs = state.auditLogs;
+    if (state.kycList) this.kycList = state.kycList;
     this.notify();
   }
   private requireLocal(feature: string): void {
@@ -1308,6 +1313,7 @@ class BrokerStoreManager {
   }
 
   processWithdrawal(txId: string, action: 'approve' | 'reject', note?: string): void {
+    if (this.bridge) { this.bridge.adminTransaction(txId, action); return; }
     const tx = this.transactions.find((t) => t.id === txId);
     if (!tx || tx.type !== 'withdrawal') return;
 
@@ -1416,6 +1422,11 @@ class BrokerStoreManager {
   }
 
   toggleUserStatus(userId: string): void {
+    if (this.bridge) {
+      const u = this.users.find((x) => x.id === userId);
+      if (u) this.bridge.adminToggleUser(userId, u.status === 'active' ? 'suspended' : 'active');
+      return;
+    }
     const target = this.users.find((u) => u.id === userId);
     if (!target) return;
 
