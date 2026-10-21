@@ -1,0 +1,22 @@
+# Render Blueprint: New + > Blueprint > pick this repo.
+services:
+  - type: web
+    name: exora-prime
+    runtime: docker
+    plan: starter            # persistent disk requires a paid plan
+    healthCheckPath: /api/health
+    disk:
+      name: exora-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@exora.local
+      - key: ADMIN_PASSWORD
+        sync: false          # you type it in the Render dashboard
+      - key: MARKET_FEED
+        value: simulated
+      - key: MARKET_HOURS
+        value: "off"         # demo: allow trading on weekends

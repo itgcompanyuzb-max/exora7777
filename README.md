@@ -63,3 +63,6 @@ Configuration is documented in `.env.example` (`JWT_SECRET`, `ADMIN_EMAIL/ADMIN_
 * **KYC / phone & email verification** — OTP checks in the UI are still client-side; admin portal and KYC screens still use the local demo store.
 * **Compliance** — a real brokerage needs a licence, segregated client funds and a regulated liquidity provider/B-book risk policy.
 * The Charting Library under `public/charting_library` is proprietary to TradingView; make sure your licence covers its use.
+
+## Deploy
+Docker image (`Dockerfile`) or Render Blueprint (`render.yaml`). Required env: `JWT_SECRET`, `ADMIN_PASSWORD`; mount a persistent volume at `/data` (SQLite). Health check: `/api/health`.
