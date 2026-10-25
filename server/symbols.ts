@@ -62,12 +62,12 @@ export const SYMBOL_SPECS: SymbolSpec[] = [
   {
     symbol: 'XAUUSD', name: 'Gold / US Dollar', assetClass: 'metal', contractSize: 100, digits: 2, pipSize: 0.1,
     baseSpread: 0.25, usdBase: false, minLot: 0.01, maxLot: 50, lotStep: 0.01, stopLevel: 0.5, maxLeverage: 2000,
-    swapLong: -30, swapShort: 14, anchor: 2685.5, vol: 0.00006, yahoo: 'XAUUSD=X', finnhub: 'OANDA:XAU_USD',
+    swapLong: -30, swapShort: 14, anchor: 2685.5, vol: 0.00006, yahoo: 'GC=F', finnhub: 'OANDA:XAU_USD',
   },
   {
     symbol: 'XAGUSD', name: 'Silver / US Dollar', assetClass: 'metal', contractSize: 5000, digits: 3, pipSize: 0.01,
     baseSpread: 0.025, usdBase: false, minLot: 0.01, maxLot: 50, lotStep: 0.01, stopLevel: 0.05, maxLeverage: 2000,
-    swapLong: -12, swapShort: 4, anchor: 31.4, vol: 0.00009, yahoo: 'XAGUSD=X', finnhub: 'OANDA:XAG_USD',
+    swapLong: -12, swapShort: 4, anchor: 31.4, vol: 0.00009, yahoo: 'SI=F', finnhub: 'OANDA:XAG_USD',
   },
   {
     symbol: 'USOIL', name: 'Crude Oil WTI', assetClass: 'energy', contractSize: 1000, digits: 2, pipSize: 0.01,

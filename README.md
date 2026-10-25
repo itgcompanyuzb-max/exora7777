@@ -58,7 +58,7 @@ npm run build && npm start
 Configuration is documented in `.env.example` (`JWT_SECRET`, `ADMIN_EMAIL/ADMIN_PASSWORD`, `MARKET_FEED`, `DB_PATH` …).
 
 ### Not production-ready yet
-* **Prices** — default `MARKET_FEED=auto` uses real quotes: Binance for crypto, Yahoo Finance polling (unofficial, key-less, a few seconds latency) for forex/gold/silver/oil/US30, or Finnhub streaming with `FINNHUB_API_KEY`. Instruments without a fresh real tick are not tradable. For production use a licensed provider or LP/FIX bridge. `MARKET_FEED=simulated` is a random-walk demo.
+* **Prices** — default `MARKET_FEED=auto` uses real quotes: Binance for crypto, Yahoo Finance polling (unofficial, key-less, a few seconds latency) for forex/oil/US30 and gold/silver (COMEX futures GC=F/SI=F, which sit a few dollars off spot — use Finnhub for spot XAU), or Finnhub streaming with `FINNHUB_API_KEY`. Instruments without a fresh real tick are not tradable. For production use a licensed provider or LP/FIX bridge. `MARKET_FEED=simulated` is a random-walk demo.
 * **Money in/out** — deposits/withdrawals are requests approved by an admin; no Payme/Click/Humo/USDT gateway is integrated.
 * **KYC / phone & email verification** — OTP checks in the UI are still client-side; admin portal and KYC screens still use the local demo store.
 * **Compliance** — a real brokerage needs a licence, segregated client funds and a regulated liquidity provider/B-book risk policy.

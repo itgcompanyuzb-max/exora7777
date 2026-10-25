@@ -10,7 +10,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
-const PRICES: Record<string, number> = { 'EURUSD=X': 1.085, 'XAUUSD=X': 2650.4, 'GBPUSD=X': 1.27, 'AUDUSD=X': 0.66, 'NZDUSD=X': 0.6, USDCHF: 0.88, 'USDCAD=X': 1.39, 'XAGUSD=X': 31.2, 'CL=F': 71.1, '^DJI': 43800 };
+const PRICES: Record<string, number> = { 'EURUSD=X': 1.085, 'GC=F': 2650.4, 'GBPUSD=X': 1.27, 'AUDUSD=X': 0.66, 'NZDUSD=X': 0.6, USDCHF: 0.88, 'USDCAD=X': 1.39, 'SI=F': 31.2, 'CL=F': 71.1, '^DJI': 43800 };
 
 const yahoo = http.createServer((req, res) => {
   const url = new URL(req.url!, 'http://x');
