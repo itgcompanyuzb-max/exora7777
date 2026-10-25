@@ -81,11 +81,16 @@ test('stale quote is never treated as live and cannot be traded', () => {
   const acc = engine.createAccount(user, { isDemo: true });
   const r = engine.placeOrder({ accountId: acc.id, symbol: 'USDJPY', side: 'BUY', lots: 0.1 });
   assert.ok(!r.ok);
-  assert.match(r.error!, /Live price/);
+  assert.match(r.error!, /Live price|closed/); // weekends: market-hours check fires first
   // a live instrument fills at the real price + spread
-  const ok = engine.placeOrder({ accountId: acc.id, symbol: 'EURUSD', side: 'BUY', lots: 0.1 });
+  const ok = engine.placeOrder({ accountId: acc.id, symbol: 'BTCUSD', side: 'BUY', lots: 0.01 });
   assert.ok(ok.ok, ok.error);
-  assert.equal(ok.order!.openPrice, 1.08505);
+  assert.equal(ok.order!.openPrice, 84006.2); // real mid 84000.2 + half of the 12.0 spread
+  // forex follows real trading hours even though MARKET_HOURS=off is set (that flag is simulator-only)
+  const fx = engine.placeOrder({ accountId: acc.id, symbol: 'EURUSD', side: 'BUY', lots: 0.1 });
+  const d = new Date();
+  const closed = d.getUTCDay() === 6 || (d.getUTCDay() === 5 && d.getUTCHours() >= 22) || (d.getUTCDay() === 0 && d.getUTCHours() < 22);
+  assert.equal(fx.ok, !closed);
 });
 
 test('real history replaces synthetic bars', () => {

@@ -74,7 +74,10 @@ export const ENGINE_CONFIG = {
   marginCallLevel: Number(process.env.MARGIN_CALL_LEVEL || 100),
   stopOutLevel: Number(process.env.STOP_OUT_LEVEL || 20),
   maxActiveOrders: 200,
-  enforceMarketHours: (process.env.MARKET_HOURS || 'on') !== 'off',
+  /** Trading hours are always enforced with real prices; MARKET_HOURS=off only applies to the simulator. */
+  get enforceMarketHours(): boolean {
+    return (process.env.MARKET_HOURS || 'on') !== 'off' || !marketData.simulated;
+  },
   demoStartBalance: 10000,
 };
 
