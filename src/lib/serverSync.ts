@@ -9,7 +9,7 @@ import type {
 
 interface ServerSymbol {
   symbol: string; display: string; name: string; assetClass: string; pipSize: number; digits: number; contractSize: number;
-  minLot: number; lotStep: number; maxLot: number; stopLevel: number; usdBase: boolean; maxLeverage: number; open: boolean;
+  minLot: number; lotStep: number; maxLot: number; stopLevel: number; usdBase: boolean; maxLeverage: number; open: boolean; live: boolean; source: string;
   bid: number; ask: number; changePct: number; high: number; low: number;
 }
 type ServerOrder = Record<string, any>;
@@ -32,6 +32,8 @@ class ServerBridge implements TradeBridge {
   private retry = 0;
   private stopped = true;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private feedMode = '';
+  private testMode = true;
   private adminUsers: BrokerUser[] = [];
   private adminAudit: AuditLogItem[] = [];
   private adminTimer: ReturnType<typeof setInterval> | null = null;
@@ -47,7 +49,9 @@ class ServerBridge implements TradeBridge {
       createdAt: me.user.createdAt,
     };
     me.accounts.forEach((a) => this.accounts.set(a.id, this.mapAccount(a)));
-    const sy = await apiFetch<{ symbols: ServerSymbol[] }>('/api/v1/symbols');
+    const sy = await apiFetch<{ symbols: ServerSymbol[]; feed: string; testMode: boolean }>('/api/v1/symbols');
+    this.feedMode = sy.feed;
+    this.testMode = sy.testMode;
     sy.symbols.forEach((s) => this.symbols.set(s.symbol, s));
     await Promise.all([...this.accounts.keys()].map((id) => this.loadPositions(id)));
     await this.refreshTransactions();
@@ -124,6 +128,7 @@ class ServerBridge implements TradeBridge {
   private onMessage(m: any) {
     switch (m.type) {
       case 'INIT_SNAPSHOT':
+        (m.symbols as ServerSymbol[]).forEach((x) => { const s = this.symbols.get(x.symbol); if (s) { s.live = x.live; s.bid = x.bid; s.ask = x.ask; } });
         (m.accounts as ServerAccount[]).forEach((a) => this.accounts.set(a.id, this.mapAccount(a)));
         this.open.clear();
         this.pending.clear();
@@ -131,7 +136,7 @@ class ServerBridge implements TradeBridge {
         break;
       case 'TICK': {
         const s = this.symbols.get(m.data.symbol);
-        if (s) { s.bid = m.data.bid; s.ask = m.data.ask; s.high = Math.max(s.high, m.data.mid); s.low = Math.min(s.low, m.data.mid); }
+        if (s) { s.live = true; s.bid = m.data.bid; s.ask = m.data.ask; s.high = Math.max(s.high, m.data.mid); s.low = Math.min(s.low, m.data.mid); }
         break;
       }
       case 'ACCOUNT_UPDATE':
@@ -238,6 +243,7 @@ class ServerBridge implements TradeBridge {
       auditLogs: this.adminAudit,
       kycList: [], // KYC document intake is not implemented server-side yet
       symbols: rates,
+      feed: { mode: this.feedMode, testMode: this.testMode, liveCount: [...this.symbols.values()].filter((x) => x.live).length, total: this.symbols.size },
     });
   }
 
@@ -248,7 +254,8 @@ class ServerBridge implements TradeBridge {
     if (!acc) throw new Error('Hisob topilmadi');
     const s = this.symbols.get(norm(uiSymbol)) ?? [...this.symbols.values()].find((x) => x.display === uiSymbol);
     if (!s) throw new Error(`${uiSymbol} serverda qo'llab-quvvatlanmaydi`);
-    if (!s.open) throw new Error(`${s.display} bozori hozir yopiq`);
+    if (!s.open && s.live) throw new Error(`${s.display} bozori hozir yopiq`);
+    if (!s.live) throw new Error(`${s.display}: jonli narx hozir mavjud emas (bozor yopiq yoki narx manbasi uzilgan)`);
     if (!(lots >= s.minLot - 1e-9 && lots <= s.maxLot + 1e-9)) throw new Error(`Hajm ${s.minLot} dan ${s.maxLot} lotgacha bo'lishi kerak`);
     if (Math.abs(lots / s.lotStep - Math.round(lots / s.lotStep)) > 1e-6) throw new Error(`Hajm qadami ${s.lotStep}`);
     if (side) {

@@ -1,6 +1,7 @@
 process.env.DB_PATH = ':memory:';
 process.env.MARKET_HOURS = 'off';
 process.env.JWT_SECRET = 'test-secret';
+process.env.TEST_MODE = 'off'; // exercise the real-account deposit request flow
 
 import test from 'node:test';
 import assert from 'node:assert/strict';

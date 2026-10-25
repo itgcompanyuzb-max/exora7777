@@ -27,8 +27,12 @@ export interface SymbolSpec {
   anchor: number;
   /** Simulator volatility, std-dev of log-return per 500ms step. */
   vol: number;
+  /** Binance spot ticker used as a live source (USDT ≈ USD). */
   binance?: string;
-  twelveData?: string;
+  /** Yahoo Finance chart symbol: key-less near-real-time source for FX / metals / energy / indices. */
+  yahoo?: string;
+  /** Finnhub symbol (OANDA) used as a live source for FX / metals / energy / indices. */
+  finnhub?: string;
 }
 
 const fx = (s: Partial<SymbolSpec> & Pick<SymbolSpec, 'symbol' | 'name' | 'anchor' | 'digits' | 'baseSpread'>): SymbolSpec => ({
@@ -48,32 +52,32 @@ const fx = (s: Partial<SymbolSpec> & Pick<SymbolSpec, 'symbol' | 'name' | 'ancho
 });
 
 export const SYMBOL_SPECS: SymbolSpec[] = [
-  fx({ symbol: 'EURUSD', name: 'Euro / US Dollar', anchor: 1.0845, digits: 5, baseSpread: 0.00010, twelveData: 'EUR/USD' }),
-  fx({ symbol: 'GBPUSD', name: 'British Pound / US Dollar', anchor: 1.2721, digits: 5, baseSpread: 0.00013, twelveData: 'GBP/USD' }),
-  fx({ symbol: 'AUDUSD', name: 'Australian Dollar / US Dollar', anchor: 0.6612, digits: 5, baseSpread: 0.00012, twelveData: 'AUD/USD' }),
-  fx({ symbol: 'NZDUSD', name: 'New Zealand Dollar / US Dollar', anchor: 0.6045, digits: 5, baseSpread: 0.00014, twelveData: 'NZD/USD' }),
-  fx({ symbol: 'USDJPY', name: 'US Dollar / Japanese Yen', anchor: 154.6, digits: 3, baseSpread: 0.012, usdBase: true, twelveData: 'USD/JPY', swapLong: 4, swapShort: -9 }),
-  fx({ symbol: 'USDCHF', name: 'US Dollar / Swiss Franc', anchor: 0.8821, digits: 5, baseSpread: 0.00014, usdBase: true, twelveData: 'USD/CHF', swapLong: 2, swapShort: -7 }),
-  fx({ symbol: 'USDCAD', name: 'US Dollar / Canadian Dollar', anchor: 1.3912, digits: 5, baseSpread: 0.00016, usdBase: true, twelveData: 'USD/CAD', swapLong: -2, swapShort: -3 }),
+  fx({ symbol: 'EURUSD', name: 'Euro / US Dollar', anchor: 1.0845, digits: 5, baseSpread: 0.00010, yahoo: 'EURUSD=X', finnhub: 'OANDA:EUR_USD' }),
+  fx({ symbol: 'GBPUSD', name: 'British Pound / US Dollar', anchor: 1.2721, digits: 5, baseSpread: 0.00013, yahoo: 'GBPUSD=X', finnhub: 'OANDA:GBP_USD' }),
+  fx({ symbol: 'AUDUSD', name: 'Australian Dollar / US Dollar', anchor: 0.6612, digits: 5, baseSpread: 0.00012, yahoo: 'AUDUSD=X', finnhub: 'OANDA:AUD_USD' }),
+  fx({ symbol: 'NZDUSD', name: 'New Zealand Dollar / US Dollar', anchor: 0.6045, digits: 5, baseSpread: 0.00014, yahoo: 'NZDUSD=X', finnhub: 'OANDA:NZD_USD' }),
+  fx({ symbol: 'USDJPY', name: 'US Dollar / Japanese Yen', anchor: 154.6, digits: 3, baseSpread: 0.012, usdBase: true, yahoo: 'USDJPY=X', finnhub: 'OANDA:USD_JPY', swapLong: 4, swapShort: -9 }),
+  fx({ symbol: 'USDCHF', name: 'US Dollar / Swiss Franc', anchor: 0.8821, digits: 5, baseSpread: 0.00014, usdBase: true, yahoo: 'USDCHF=X', finnhub: 'OANDA:USD_CHF', swapLong: 2, swapShort: -7 }),
+  fx({ symbol: 'USDCAD', name: 'US Dollar / Canadian Dollar', anchor: 1.3912, digits: 5, baseSpread: 0.00016, usdBase: true, yahoo: 'USDCAD=X', finnhub: 'OANDA:USD_CAD', swapLong: -2, swapShort: -3 }),
   {
     symbol: 'XAUUSD', name: 'Gold / US Dollar', assetClass: 'metal', contractSize: 100, digits: 2, pipSize: 0.1,
     baseSpread: 0.25, usdBase: false, minLot: 0.01, maxLot: 50, lotStep: 0.01, stopLevel: 0.5, maxLeverage: 2000,
-    swapLong: -30, swapShort: 14, anchor: 2685.5, vol: 0.00006, binance: 'PAXGUSDT', twelveData: 'XAU/USD',
+    swapLong: -30, swapShort: 14, anchor: 2685.5, vol: 0.00006, yahoo: 'XAUUSD=X', finnhub: 'OANDA:XAU_USD',
   },
   {
     symbol: 'XAGUSD', name: 'Silver / US Dollar', assetClass: 'metal', contractSize: 5000, digits: 3, pipSize: 0.01,
     baseSpread: 0.025, usdBase: false, minLot: 0.01, maxLot: 50, lotStep: 0.01, stopLevel: 0.05, maxLeverage: 2000,
-    swapLong: -12, swapShort: 4, anchor: 31.4, vol: 0.00009, twelveData: 'XAG/USD',
+    swapLong: -12, swapShort: 4, anchor: 31.4, vol: 0.00009, yahoo: 'XAGUSD=X', finnhub: 'OANDA:XAG_USD',
   },
   {
     symbol: 'USOIL', name: 'Crude Oil WTI', assetClass: 'energy', contractSize: 1000, digits: 2, pipSize: 0.01,
     baseSpread: 0.03, usdBase: false, minLot: 0.01, maxLot: 100, lotStep: 0.01, stopLevel: 0.06, maxLeverage: 200,
-    swapLong: -9, swapShort: 3, anchor: 71.45, vol: 0.00009,
+    swapLong: -9, swapShort: 3, anchor: 71.45, vol: 0.00009, yahoo: 'CL=F', finnhub: 'OANDA:WTICO_USD',
   },
   {
     symbol: 'US30', name: 'Wall Street 30 Index', assetClass: 'index', contractSize: 1, digits: 1, pipSize: 1,
     baseSpread: 2.5, usdBase: false, minLot: 0.01, maxLot: 100, lotStep: 0.01, stopLevel: 5, maxLeverage: 200,
-    swapLong: -6, swapShort: 2, anchor: 43810, vol: 0.00005,
+    swapLong: -6, swapShort: 2, anchor: 43810, vol: 0.00005, yahoo: '^DJI', finnhub: 'OANDA:US30_USD',
   },
   {
     symbol: 'SOLUSD', name: 'Solana / US Dollar', assetClass: 'crypto', contractSize: 1, digits: 2, pipSize: 0.01,

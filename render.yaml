@@ -17,6 +17,6 @@ services:
       - key: ADMIN_PASSWORD
         sync: false          # you type it in the Render dashboard
       - key: MARKET_FEED
-        value: simulated
-      - key: MARKET_HOURS
-        value: "off"         # demo: allow trading on weekends
+        value: auto
+      - key: FINNHUB_API_KEY
+        sync: false          # optional: streaming forex prices

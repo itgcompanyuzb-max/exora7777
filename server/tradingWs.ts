@@ -23,13 +23,13 @@ export function initTradingWebSocket(server: HttpServer) {
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url || '', 'http://localhost');
     const user = userFromToken(url.searchParams.get('token') ?? undefined);
-    const client: Client = { ws, user, symbols: new Set(SYMBOL_SPECS.map((s) => s.symbol)) };
+    const client: Client = { ws, user, symbols: new Set(marketData.activeSpecs().map((s) => s.symbol)) };
     clients.add(client);
 
     const accounts = user ? tradingEngine.accountsOf(user.id) : [];
     send(client, {
       type: 'INIT_SNAPSHOT', authenticated: !!user, serverTime: Date.now(), feed: marketData.feedMode,
-      symbols: SYMBOL_SPECS.map((s) => ({ ...s, ...marketData.quote(s.symbol) })),
+      symbols: marketData.activeSpecs().map((s) => ({ ...s, ...marketData.quote(s.symbol), live: marketData.isLive(s.symbol) })),
       accounts: accounts.map(accountView),
       positions: accounts.flatMap((a) => [...tradingEngine.openOrders(a.id), ...tradingEngine.pendingOrders(a.id)]).map(orderView),
     });

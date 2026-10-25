@@ -2,7 +2,7 @@
 // TradingView Universal Data Feed (UDF) backed by the persisted candle store.
 import express from 'express';
 import { marketData } from './marketData.js';
-import { SYMBOL_SPECS, SPEC_BY_SYMBOL, normalizeSymbol, SymbolSpec } from './symbols.js';
+import { SPEC_BY_SYMBOL, normalizeSymbol, SymbolSpec } from './symbols.js';
 
 export const tradingViewRouter = express.Router();
 
@@ -33,7 +33,7 @@ tradingViewRouter.get('/time', (_req, res) => res.type('text/plain').send(String
 tradingViewRouter.get('/symbols', (req, res) => {
   const sym = normalizeSymbol(String(req.query.symbol || 'XAUUSD'));
   const s = SPEC_BY_SYMBOL.get(sym);
-  if (!s) return res.status(404).json({ s: 'error', errmsg: 'Unknown symbol' });
+  if (!s || !marketData.isActive(s.symbol)) return res.status(404).json({ s: 'error', errmsg: 'Unknown symbol' });
   res.json({
     name: s.symbol, ticker: s.symbol, description: s.name, type: tvType(s), session: session(s),
     exchange: 'EXORA', listed_exchange: 'EXORA', timezone: 'Etc/UTC', minmov: 1, pricescale: Math.pow(10, s.digits),
@@ -70,7 +70,7 @@ tradingViewRouter.get('/search', (req, res) => {
   const type = String(req.query.type || '');
   const limit = Math.min(50, parseInt(String(req.query.limit || '30'), 10) || 30);
   res.json(
-    SYMBOL_SPECS.filter((s) => (!q || s.symbol.includes(q) || s.name.toUpperCase().includes(q)) && (!type || tvType(s) === type))
+    marketData.activeSpecs().filter((s) => (!q || s.symbol.includes(q) || s.name.toUpperCase().includes(q)) && (!type || tvType(s) === type))
       .slice(0, limit)
       .map((s) => ({ symbol: s.symbol, full_name: `EXORA:${s.symbol}`, description: s.name, exchange: 'EXORA', ticker: s.symbol, type: tvType(s) }))
   );
@@ -78,7 +78,7 @@ tradingViewRouter.get('/search', (req, res) => {
 
 tradingViewRouter.get('/quotes', (req, res) => {
   const raw = String(req.query.symbols || '');
-  const list = raw ? raw.split(',').map((s) => normalizeSymbol(s.trim())) : SYMBOL_SPECS.map((s) => s.symbol);
+  const list = raw ? raw.split(',').map((s) => normalizeSymbol(s.trim())) : marketData.activeSpecs().map((s) => s.symbol);
   const d = list.flatMap((sym) => {
     const spec = SPEC_BY_SYMBOL.get(sym);
     const q = marketData.quote(sym);

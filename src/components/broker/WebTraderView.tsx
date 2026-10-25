@@ -458,6 +458,26 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
 
         {/* Right: Account Chip + Notification Bell + 9-Dots Grid + Profile Avatar + Deposit Button */}
         <div className="flex items-center gap-2.5">
+          {/* Feed status + test-mode badge (server mode only) */}
+          {brokerStore.getFeedInfo() && (() => {
+            const f = brokerStore.getFeedInfo()!;
+            const live = f.mode.startsWith('live') && f.liveCount > 0;
+            return (
+              <div className="hidden md:flex items-center gap-1.5 text-[10px] font-mono">
+                {f.testMode && (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Litsenziyasiz test rejimi: virtual mablag', haqiqiy pul qabul qilinmaydi">
+                    TEST
+                  </span>
+                )}
+                <span
+                  className={`px-1.5 py-0.5 rounded border ${live ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/10 text-rose-300 border-rose-500/30'}`}
+                  title={`Narx manbai: ${f.mode} · jonli: ${f.liveCount}/${f.total}`}
+                >
+                  {f.mode === 'simulated' ? 'SIMULYATSIYA' : live ? `LIVE ${f.liveCount}/${f.total}` : 'NARX YO\'Q'}
+                </span>
+              </div>
+            );
+          })()}
           {/* Account Info Chip with Dropdown */}
           <div className="relative">
             <div 

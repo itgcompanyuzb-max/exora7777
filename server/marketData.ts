@@ -35,7 +35,9 @@ class MarketData {
   private bars = new Map<string, Candle>(); // current 1m bar per symbol
   private dirty = new Set<string>();
   private tickListeners: Array<(q: Quote) => void> = [];
-  public feedMode: 'simulated' | 'binance' | 'binance+twelvedata' | 'twelvedata' = 'simulated';
+  public feedMode = 'simulated'; // 'simulated' | 'live:binance' | 'live:binance+finnhub' ...
+  private sources = new Map<string, 'binance' | 'finnhub' | 'yahoo'>();
+  private liveMaxAgeMs = Number(process.env.LIVE_MAX_AGE_MS || 30000);
 
   constructor() {
     for (const s of SYMBOL_SPECS) {
@@ -155,6 +157,7 @@ class MarketData {
         });
         price = open;
       }
+      db.prepare("INSERT OR REPLACE INTO meta (key,value) VALUES (?, '1')").run(`synthetic:${spec.symbol}`);
       db.exec('BEGIN');
       const stmt = db.prepare('INSERT OR REPLACE INTO candles (symbol,time,open,high,low,close,volume) VALUES (?,?,?,?,?,?,?)');
       for (const b of bars) stmt.run(spec.symbol, b.time, b.open, b.high, b.low, b.close, b.volume);
@@ -201,75 +204,212 @@ class MarketData {
   }
 
   // ---------------------------------------------------------------- feeds
+  /** True when prices are simulated (no live provider configured). */
+  get simulated() {
+    return this.sources.size === 0;
+  }
+
+  /** Instruments that can be traded: all in simulated mode, otherwise only those with a live source. */
+  isActive(symbol: string): boolean {
+    return this.simulated ? SPEC_BY_SYMBOL.has(symbol) : this.sources.has(symbol);
+  }
+  activeSpecs() {
+    return SYMBOL_SPECS.filter((s) => this.isActive(s.symbol));
+  }
+
+  /** Fresh real tick received recently (always true for the simulator). */
+  isLive(symbol: string): boolean {
+    if (this.simulated) return true;
+    if (!this.sources.has(symbol)) return false;
+    return Date.now() - (this.lastLive.get(symbol) ?? 0) < this.liveMaxAgeMs;
+  }
+
+  sourceOf(symbol: string): string {
+    return this.simulated ? 'simulated' : this.sources.get(symbol) ?? 'none';
+  }
+
+  status() {
+    return {
+      mode: this.feedMode,
+      symbols: this.activeSpecs().map((s) => ({
+        symbol: s.symbol, source: this.sourceOf(s.symbol), live: this.isLive(s.symbol),
+        ageMs: this.lastLive.has(s.symbol) ? Date.now() - this.lastLive.get(s.symbol)! : null,
+      })),
+    };
+  }
+
   start() {
-    this.seedHistory();
-    const mode = (process.env.MARKET_FEED || 'simulated').toLowerCase();
-    const useBinance = mode.includes('binance');
-    const useTwelve = mode.includes('twelvedata') && !!process.env.TWELVEDATA_API_KEY;
-    this.feedMode = useBinance && useTwelve ? 'binance+twelvedata' : useBinance ? 'binance' : useTwelve ? 'twelvedata' : 'simulated';
-    console.log(`[market] feed mode: ${this.feedMode}`);
-    if (useBinance) this.connectBinance();
-    if (useTwelve) this.pollTwelveData();
-    // Simulator fills any symbol that has no fresh live tick (also covers weekends / provider outages).
-    setInterval(() => this.simulateStep(), 500).unref();
+    const mode = (process.env.MARKET_FEED || 'auto').toLowerCase();
+    const finnhubKey = process.env.FINNHUB_API_KEY?.trim();
+    if (mode !== 'simulated') {
+      for (const s of SYMBOL_SPECS) {
+        if (s.binance) this.sources.set(s.symbol, 'binance');
+        else if (s.finnhub && finnhubKey) this.sources.set(s.symbol, 'finnhub');
+        else if (s.yahoo) this.sources.set(s.symbol, 'yahoo');
+      }
+    }
+    const used = new Set(this.sources.values());
+    this.feedMode = this.simulated ? 'simulated' : `live:${[...used].join('+')}`;
+    console.log(`[market] feed mode: ${this.feedMode} (${this.simulated ? SYMBOL_SPECS.length : this.sources.size} instruments)`);
+    if (!this.simulated && !finnhubKey && used.has('yahoo')) {
+      console.log('[market] Forex/metals/oil/indices use Yahoo Finance polling (key-less, near real-time). Set FINNHUB_API_KEY for a streaming feed.');
+    }
+
+    if (this.simulated) {
+      this.seedHistory();
+      // Random-walk simulator — demo only, never mixed with live data.
+      setInterval(() => this.simulateStep(), 500).unref();
+    } else {
+      this.backfillBinanceHistory().catch((e) => console.warn('[market] Binance history backfill failed:', e.message));
+      this.backfillYahooHistory().catch((e) => console.warn('[market] Yahoo history backfill failed:', e.message));
+      if (used.has('binance')) this.connectBinance();
+      if (used.has('finnhub')) this.connectFinnhub();
+      if (used.has('yahoo')) this.pollYahoo();
+    }
     setInterval(() => this.flush(), 5000).unref();
   }
 
   private simulateStep() {
-    const now = Date.now();
     for (const spec of SYMBOL_SPECS) {
-      const live = this.lastLive.get(spec.symbol) ?? 0;
-      if (now - live < 4000) continue;
       if (process.env.MARKET_HOURS !== 'off' && !isMarketOpen(spec)) continue;
       const mid = this.mids.get(spec.symbol)!;
       const anchor = this.anchors.get(spec.symbol)!;
-      const reversion = (anchor - mid) / anchor * 0.002;
-      const next = mid * Math.exp(randn() * spec.vol + reversion);
-      this.pushPrice(spec.symbol, next, false);
+      const reversion = ((anchor - mid) / anchor) * 0.002;
+      this.pushPrice(spec.symbol, mid * Math.exp(randn() * spec.vol + reversion), false);
     }
+  }
+
+  /** Replace synthetic bars with real 1-minute klines (last ~2 days) for Binance-sourced symbols. */
+  private async backfillBinanceHistory() {
+    const rest = (process.env.BINANCE_REST_URL || 'https://api.binance.com').replace(/\/$/, '');
+    for (const [symbol, src] of this.sources) {
+      if (src !== 'binance') continue;
+      const spec = SPEC_BY_SYMBOL.get(symbol)!;
+      const flagged = db.prepare('SELECT 1 FROM meta WHERE key = ?').get(`synthetic:${symbol}`);
+      if (flagged) {
+        db.prepare('DELETE FROM candles WHERE symbol = ?').run(symbol);
+        db.prepare('DELETE FROM meta WHERE key = ?').run(`synthetic:${symbol}`);
+      }
+      let endTime = Date.now();
+      for (let page = 0; page < 3; page++) {
+        const res = await fetch(`${rest}/api/v3/klines?symbol=${spec.binance}&interval=1m&limit=1000&endTime=${endTime}`);
+        if (!res.ok) throw new Error(`klines ${spec.binance}: HTTP ${res.status}`);
+        const rows = (await res.json()) as any[][];
+        if (!rows.length) break;
+        db.exec('BEGIN');
+        const stmt = db.prepare('INSERT OR REPLACE INTO candles (symbol,time,open,high,low,close,volume) VALUES (?,?,?,?,?,?,?)');
+        for (const k of rows) stmt.run(symbol, Math.floor(k[0] / 1000), +k[1], +k[2], +k[3], +k[4], +k[5]);
+        db.exec('COMMIT');
+        endTime = rows[0][0] - 1;
+      }
+      console.log(`[market] history backfilled for ${symbol}`);
+    }
+  }
+
+  private yahooUrl(symbol: string, query: string) {
+    const base = (process.env.YAHOO_BASE_URL || 'https://query1.finance.yahoo.com').replace(/\/$/, '');
+    return `${base}/v8/finance/chart/${encodeURIComponent(SPEC_BY_SYMBOL.get(symbol)!.yahoo!)}?${query}`;
+  }
+  private static readonly YAHOO_HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; ExoraPrime/1.0)', Accept: 'application/json' };
+
+  /** Real 1-minute history for Yahoo-sourced symbols (last ~2 days). */
+  private async backfillYahooHistory() {
+    for (const [symbol, src] of this.sources) {
+      if (src !== 'yahoo') continue;
+      const spec = SPEC_BY_SYMBOL.get(symbol)!;
+      const res = await fetch(this.yahooUrl(symbol, 'interval=1m&range=2d'), { headers: MarketData.YAHOO_HEADERS });
+      if (!res.ok) { console.warn(`[market] Yahoo history ${symbol}: HTTP ${res.status}`); continue; }
+      const r = ((await res.json()) as any)?.chart?.result?.[0];
+      const ts: number[] = r?.timestamp ?? [];
+      const q = r?.indicators?.quote?.[0];
+      if (!ts.length || !q) continue;
+      if (db.prepare('SELECT 1 FROM meta WHERE key = ?').get(`synthetic:${symbol}`)) {
+        db.prepare('DELETE FROM candles WHERE symbol = ?').run(symbol);
+        db.prepare('DELETE FROM meta WHERE key = ?').run(`synthetic:${symbol}`);
+      }
+      db.exec('BEGIN');
+      const stmt = db.prepare('INSERT OR REPLACE INTO candles (symbol,time,open,high,low,close,volume) VALUES (?,?,?,?,?,?,?)');
+      for (let i = 0; i < ts.length; i++) {
+        if (q.open[i] == null || q.close[i] == null) continue;
+        stmt.run(symbol, ts[i], round(q.open[i], spec.digits), round(q.high[i], spec.digits), round(q.low[i], spec.digits), round(q.close[i], spec.digits), q.volume?.[i] ?? 0);
+      }
+      db.exec('COMMIT');
+      console.log(`[market] history backfilled for ${symbol} (${ts.length} bars)`);
+    }
+  }
+
+  /** Poll Yahoo's chart endpoint one symbol at a time; stale quotes (>5 min old) are ignored. */
+  private pollYahoo() {
+    const symbols = [...this.sources].filter(([, src]) => src === 'yahoo').map(([sym]) => sym);
+    const interval = Math.max(500, Number(process.env.YAHOO_POLL_MS || 4000));
+    const step = Math.max(250, Math.floor(interval / Math.max(1, symbols.length)));
+    let i = 0;
+    let warned = false;
+    const tick = async () => {
+      const symbol = symbols[i++ % symbols.length];
+      try {
+        const res = await fetch(this.yahooUrl(symbol, 'interval=1m&range=1d'), { headers: MarketData.YAHOO_HEADERS, signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const meta = ((await res.json()) as any)?.chart?.result?.[0]?.meta;
+        const price = Number(meta?.regularMarketPrice);
+        const t = Number(meta?.regularMarketTime);
+        if (Number.isFinite(price) && (!t || Date.now() / 1000 - t < 300)) this.pushPrice(symbol, price, true);
+        warned = false;
+      } catch (e: any) {
+        if (!warned) console.warn(`[market] Yahoo poll ${symbol} failed: ${e.message}`);
+        warned = true;
+      }
+    };
+    setInterval(tick, step).unref();
+  }
+
+  private reconnect(fn: () => void, attempt: number) {
+    setTimeout(fn, Math.min(30000, 1000 * 2 ** attempt)).unref();
   }
 
   private connectBinance(attempt = 0) {
     const map = new Map<string, string>();
-    for (const s of SYMBOL_SPECS) if (s.binance) map.set(s.binance.toLowerCase(), s.symbol);
+    for (const [sym, src] of this.sources) if (src === 'binance') map.set(SPEC_BY_SYMBOL.get(sym)!.binance!.toLowerCase(), sym);
+    const base = (process.env.BINANCE_WS_URL || 'wss://stream.binance.com:9443').replace(/\/$/, '');
     const streams = [...map.keys()].map((k) => `${k}@bookTicker`).join('/');
-    const ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+    const ws = new WebSocket(`${base}/stream?streams=${streams}`);
     ws.on('open', () => {
       console.log('[market] Binance feed connected');
       attempt = 0;
     });
     ws.on('message', (raw) => {
       try {
-        const msg = JSON.parse(raw.toString());
-        const d = msg.data;
+        const d = JSON.parse(raw.toString()).data;
         const sym = map.get(String(d.s).toLowerCase());
         if (sym) this.pushPrice(sym, (parseFloat(d.b) + parseFloat(d.a)) / 2, true);
       } catch { /* ignore malformed frame */ }
     });
-    const retry = () => setTimeout(() => this.connectBinance(attempt + 1), Math.min(30000, 1000 * 2 ** attempt)).unref();
-    ws.on('close', retry);
+    ws.on('close', () => this.reconnect(() => this.connectBinance(attempt + 1), attempt));
     ws.on('error', (e) => console.warn('[market] Binance feed error:', e.message));
   }
 
-  private pollTwelveData() {
-    const key = process.env.TWELVEDATA_API_KEY!;
-    const specs = SYMBOL_SPECS.filter((s) => s.twelveData && !(this.feedMode.includes('binance') && s.binance));
-    const byTd = new Map(specs.map((s) => [s.twelveData!, s.symbol]));
-    const interval = Number(process.env.TWELVEDATA_POLL_MS || 20000);
-    const poll = async () => {
+  private connectFinnhub(attempt = 0) {
+    const map = new Map<string, string>();
+    for (const [sym, src] of this.sources) if (src === 'finnhub') map.set(SPEC_BY_SYMBOL.get(sym)!.finnhub!, sym);
+    const base = (process.env.FINNHUB_WS_URL || 'wss://ws.finnhub.io').replace(/\/$/, '');
+    const ws = new WebSocket(`${base}?token=${process.env.FINNHUB_API_KEY}`);
+    ws.on('open', () => {
+      console.log('[market] Finnhub feed connected');
+      attempt = 0;
+      for (const fh of map.keys()) ws.send(JSON.stringify({ type: 'subscribe', symbol: fh }));
+    });
+    ws.on('message', (raw) => {
       try {
-        const url = `https://api.twelvedata.com/price?symbol=${[...byTd.keys()].join(',')}&apikey=${key}`;
-        const data: any = await (await fetch(url)).json();
-        for (const [td, sym] of byTd) {
-          const p = parseFloat(data?.[td]?.price ?? data?.price);
-          if (Number.isFinite(p)) this.pushPrice(sym, p, true);
+        const msg = JSON.parse(raw.toString());
+        if (msg.type !== 'trade') return;
+        for (const t of msg.data as Array<{ s: string; p: number }>) {
+          const sym = map.get(t.s);
+          if (sym) this.pushPrice(sym, t.p, true);
         }
-      } catch (e: any) {
-        console.warn('[market] TwelveData poll failed:', e.message);
-      }
-    };
-    poll();
-    setInterval(poll, interval).unref();
+      } catch { /* ignore malformed frame */ }
+    });
+    ws.on('close', () => this.reconnect(() => this.connectFinnhub(attempt + 1), attempt));
+    ws.on('error', (e) => console.warn('[market] Finnhub feed error:', e.message));
   }
 }
 

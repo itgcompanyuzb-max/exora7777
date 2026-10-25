@@ -113,6 +113,7 @@ brokerRouter.post('/wallet/deposit', requireAuth, rateLimit((r) => `dep:${ip(r)}
     const r = tradingEngine.adjustBalance(acc.id, amount, 'deposit', 'demo_topup', 'Demo top-up');
     return r.ok ? res.json({ success: true, newBalance: r.balance, account: accountView(acc) }) : bad(res, r.error);
   }
+  if (TEST_MODE) return bad(res, "Test rejimi: haqiqiy mablag' qabul qilinmaydi. Demo hisobdan foydalaning.", 403);
   const method = String(req.body?.method ?? 'bank_wire');
   if (!METHODS.includes(method)) return bad(res, 'Unsupported payment method');
   if (amount < 10) return bad(res, 'Minimum deposit is $10');
@@ -127,6 +128,7 @@ brokerRouter.post('/wallet/withdraw', requireAuth, rateLimit((r) => `wd:${ip(r)}
   const acc = ownedAccount(req, req.body?.accountId);
   if (!acc) return bad(res, 'Account not found', 404);
   if (acc.isDemo) return bad(res, 'Withdrawals are not available for demo accounts');
+  if (TEST_MODE) return bad(res, "Test rejimi: pul yechish o'chirilgan.", 403);
   const kyc = db.prepare('SELECT kyc_status FROM users WHERE id = ?').get(req.user!.id) as any;
   if (kyc.kyc_status !== 'approved') return bad(res, 'Identity verification (KYC) is required before withdrawal', 403);
   const amount = Number(req.body?.amount);
@@ -224,18 +226,21 @@ brokerRouter.get('/trading/history', requireAuth, (req, res) => {
 // ============================================================================
 // 4. MARKET DATA
 // ============================================================================
+export const TEST_MODE = (process.env.TEST_MODE || 'on') !== 'off';
+
 function symbolsPayload(tier: Account['tier'] = 'Standard') {
-  return SYMBOL_SPECS.map((s) => {
+  return marketData.activeSpecs().map((s) => {
     const q = marketData.quote(s.symbol, tier)!;
     const d = marketData.dayStats(s.symbol);
     return {
-      symbol: s.symbol, display: displayName(s), name: s.name, assetClass: s.assetClass, open: isMarketOpen(s), high: d.high, low: d.low, contractSize: s.contractSize, digits: s.digits, pipSize: s.pipSize,
+      symbol: s.symbol, display: displayName(s), name: s.name, assetClass: s.assetClass, open: isMarketOpen(s), live: marketData.isLive(s.symbol), source: marketData.sourceOf(s.symbol), high: d.high, low: d.low, contractSize: s.contractSize, digits: s.digits, pipSize: s.pipSize,
       minLot: s.minLot, maxLot: s.maxLot, lotStep: s.lotStep, stopLevel: s.stopLevel, usdBase: s.usdBase, maxLeverage: s.maxLeverage,
       bid: q.bid, ask: q.ask, spread: Number((q.ask - q.bid).toFixed(s.digits)), change: d.change, changePct: d.changePct,
     };
   });
 }
-brokerRouter.get('/symbols', (_req, res) => res.json({ success: true, symbols: symbolsPayload(), feed: marketData.feedMode }));
+brokerRouter.get('/symbols', (_req, res) => res.json({ success: true, symbols: symbolsPayload(), feed: marketData.feedMode, testMode: TEST_MODE }));
+brokerRouter.get('/market/status', (_req, res) => res.json({ success: true, testMode: TEST_MODE, ...marketData.status() }));
 brokerRouter.get('/rates/live', (_req, res) =>
   res.json({ success: true, timestamp: new Date().toISOString(), feed: marketData.feedMode, rates: symbolsPayload() }));
 brokerRouter.get('/rates/candles', (req, res) => {
@@ -270,6 +275,7 @@ admin.get('/dashboard', (_req, res) => {
       pendingTransactions: count("SELECT COUNT(*) n FROM transactions WHERE status = 'pending'"),
       marginCallAccounts: accounts.filter((a) => a.margin > 0 && a.marginLevel < ENGINE_CONFIG.marginCallLevel).length,
       priceFeed: marketData.feedMode,
+      liveInstruments: marketData.status().symbols.filter((x) => x.live).length,
     },
   });
 });

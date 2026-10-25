@@ -258,7 +258,9 @@ class TradingEngine extends EventEmitter {
     if (lots === undefined || lots < spec.minLot - 1e-9 || lots > spec.maxLot + 1e-9) return fail(`Volume must be between ${spec.minLot} and ${spec.maxLot} lots`);
     if (Math.abs(lots / spec.lotStep - Math.round(lots / spec.lotStep)) > 1e-6) return fail(`Volume step is ${spec.lotStep}`);
     if (this.activeOrders(acc.id).length >= ENGINE_CONFIG.maxActiveOrders) return fail('Maximum number of active orders reached');
+    if (!marketData.isActive(spec.symbol)) return fail(`${spec.symbol} is not available: no live price source configured`);
     if (ENGINE_CONFIG.enforceMarketHours && !isMarketOpen(spec)) return fail(`Market is closed for ${spec.symbol}`);
+    if (!marketData.isLive(spec.symbol)) return fail(`Live price for ${spec.symbol} is unavailable right now — please retry shortly`);
 
     const q = this.quoteFor(acc, spec.symbol);
     if (!q) return fail('No price available');
@@ -370,6 +372,8 @@ class TradingEngine extends EventEmitter {
     const q = this.quoteFor(acc, o.symbol);
     if (!q) return fail('No price available');
     if (ENGINE_CONFIG.enforceMarketHours && !isMarketOpen(spec) && !opts.liquidated) return fail(`Market is closed for ${spec.symbol}`);
+    // Manual closes need a fresh real price; automatic ones (SL/TP/stop-out) are driven by live ticks.
+    if (!opts.reason && !marketData.isLive(spec.symbol)) return fail(`Live price for ${spec.symbol} is unavailable right now — please retry shortly`);
 
     const price = o.side === 'BUY' ? q.bid : q.ask;
     let closeLots = opts.lots === undefined ? o.lots : num(opts.lots) ?? 0;
