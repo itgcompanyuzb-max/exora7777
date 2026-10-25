@@ -64,6 +64,15 @@ export default function App() {
     return unsub;
   }, []);
 
+  // Trading, cabinet and admin need a real session; never show the local demo store to guests.
+  useEffect(() => {
+    if (!isLoggedIn && ['webtrader', 'metatrader', 'cabinet', 'kyc', 'admin'].includes(activeTab)) {
+      setActiveTab('landing');
+      setAuthInitialMode('login');
+      setAuthOpen(true);
+    }
+  }, [isLoggedIn, activeTab]);
+
   function handleOpenAuth(mode: 'login' | 'register') {
     setAuthInitialMode(mode);
     setAuthOpen(true);

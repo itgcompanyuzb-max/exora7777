@@ -164,39 +164,9 @@ export function TradingViewChart({
       }
     }
 
-    // Mode 2: TradingView Advanced Widget Constructor (via s3.tradingview.com/tv.js)
-    if (TV && TV.widget) {
-      try {
-        const widget = new TV.widget({
-          autosize: true,
-          symbol: tvSymbol,
-          interval: tvInterval,
-          timezone: 'Etc/UTC',
-          theme: theme,
-          style: chartStyle,
-          locale: 'en',
-          toolbar_bg: '#0a0d0b',
-          enable_publishing: false,
-          hide_top_toolbar: false,
-          hide_side_toolbar: false,
-          allow_symbol_change: true,
-          container_id: containerId,
-          withdateranges: true,
-          save_image: false,
-          studies: [],
-        });
-        widgetInstanceRef.current = widget;
-        setActiveEngine('widget');
-        setTimeout(() => { if (isMounted) setIsLoaded(true); }, 700);
-        return;
-      } catch (err) {
-        console.warn('[TradingView Widget] Fallback to embed URL:', err);
-      }
-    }
-
-    // Mode 3: High-reliability Secure Iframe Embed
+    // The library failed to start. Never fall back to a third-party chart: its prices would not match the broker's.
     setActiveEngine('embed');
-    setTimeout(() => { if (isMounted) setIsLoaded(true); }, 500);
+    setIsLoaded(true);
 
     return () => {
       isMounted = false;
@@ -299,21 +269,15 @@ export function TradingViewChart({
           className={`w-full h-full ${activeEngine === 'embed' ? 'hidden' : 'block'}`}
         />
 
-        {/* Fallback Embed Iframe */}
+        {/* Chart unavailable (library failed to load) */}
         {activeEngine === 'embed' && (
-          <div className="w-full h-full relative overflow-hidden">
-            <iframe
-              key={`${tvSymbol}-${tvInterval}-${chartStyle}-${key}`}
-              title={`TradingView-${tvSymbol}`}
-              src={embedUrl}
-              className="w-full h-[calc(100%+32px)] border-none relative z-1 -mb-8"
-              allow="fullscreen"
-              allowTransparency
-              scrolling="no"
-              onLoad={() => setIsLoaded(true)}
-            />
-            {/* Dark mask overlay for brand cleanup */}
-            <div className="absolute bottom-0 left-0 h-8 w-44 bg-[#0a0d0b] z-20 pointer-events-none" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center px-6 bg-[#0a0d0b]">
+            <div className="text-rose-300 font-bold text-sm">Grafik yuklanmadi</div>
+            <div className="text-gray-400 text-xs max-w-sm">
+              TradingView Charting Library ishga tushmadi. Sahifani yangilang (Ctrl+F5). Muammo davom etsa, brauzer konsolidagi xatoni yuboring.
+              Brokerning narxlariga mos kelmaydigan tashqi grafik ko'rsatilmaydi.
+            </div>
+            <button onClick={() => setKey((k) => k + 1)} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs">Qayta urinish</button>
           </div>
         )}
 
