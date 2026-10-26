@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertTriangle, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export function AuthCallback() {
@@ -88,7 +89,7 @@ export function AuthCallback() {
   return (
     <div className="min-h-screen bg-[#191c18] text-[#f4f7f2] flex items-center justify-center p-6">
       <div className="glass max-w-sm w-full rounded-3xl p-8 text-center border border-white/10">
-        <div className="text-3xl mb-3">{error ? "⚠️" : "🔐"}</div>
+        <div className="mb-3 flex justify-center">{error ? <AlertTriangle className="size-9 text-amber-400" /> : <KeyRound className="size-9 text-primary" />}</div>
         <h2 className="text-lg font-bold mb-2">Google Authentication</h2>
         <p className="text-xs text-muted-foreground">{status}</p>
       </div>

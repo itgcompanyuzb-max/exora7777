@@ -429,7 +429,7 @@ export default function App() {
           />
         </div>
       ) : (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 flex-1 w-full">
+        <main className={`${activeTab === 'admin' ? 'max-w-[1800px]' : 'max-w-7xl'} mx-auto px-4 sm:px-6 pt-6 sm:pt-8 flex-1 w-full`}>
           {activeTab === 'landing' && (
             <LandingView
               lang={lang}

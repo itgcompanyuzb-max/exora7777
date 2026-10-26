@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { Lock, Reply } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { CATEGORY_LABEL, PRIORITY_LABEL, PRIORITY_STYLE, STATUS_LABEL, StatusBadge, ago, useTicketEvents } from './shared';
 import { ClientDrawer } from './ClientDrawer';
@@ -71,11 +72,11 @@ export function AdminSupportDesk({ meId }: { meId: string }) {
           <input className={`${sel} w-full`} placeholder="Qidirish: mavzu, mijoz, TKT-1001…" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
           <div className="grid grid-cols-3 gap-2">
             <select className={sel} value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
-              <option value="">Barcha holat</option>
+              <option value="">Holat</option>
               {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
             <select className={sel} value={filter.assignee} onChange={(e) => setFilter({ ...filter, assignee: e.target.value })}>
-              <option value="">Barcha mas'ul</option><option value="me">Menga</option><option value="none">Tayinlanmagan</option>
+              <option value="">Mas'ul</option><option value="me">Menga</option><option value="none">Tayinlanmagan</option>
             </select>
             <select className={sel} value={filter.priority} onChange={(e) => setFilter({ ...filter, priority: e.target.value })}>
               <option value="">Muhimlik</option>
@@ -87,13 +88,13 @@ export function AdminSupportDesk({ meId }: { meId: string }) {
             {rows.map((t) => (
               <button key={t.id} onClick={() => setSelected(t.id)} className={`text-left rounded-2xl border p-3 ${selected === t.id ? 'border-primary/50 bg-white/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.07]'}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-mono text-gray-400">{t.number} <span className={PRIORITY_STYLE[t.priority]}>● {PRIORITY_LABEL[t.priority]}</span></span>
+                  <span className="text-[11px] font-mono text-gray-400">{t.number} <span className={`inline-flex items-center gap-1 ${PRIORITY_STYLE[t.priority]}`}><span className="size-1.5 rounded-full bg-current" />{PRIORITY_LABEL[t.priority]}</span></span>
                   <StatusBadge status={t.status} />
                 </div>
                 <div className="text-sm font-semibold mt-1 line-clamp-1">{t.subject}</div>
                 <div className="flex justify-between text-[11px] text-gray-500 mt-1">
                   <span>{t.userName} · {CATEGORY_LABEL[t.category]}</span>
-                  <span>{t.lastSender === 'client' ? '↩ mijoz javob kutmoqda · ' : ''}{ago(t.updatedAt)}</span>
+                  <span className="inline-flex items-center gap-1">{t.lastSender === 'client' && <><Reply className="size-3 text-sky-300" />mijoz javob kutmoqda ·</>} {ago(t.updatedAt)}</span>
                 </div>
                 <div className="text-[10px] text-gray-600 mt-0.5">Mas'ul: {t.assigneeName ?? '—'}</div>
               </button>
@@ -113,7 +114,7 @@ export function AdminSupportDesk({ meId }: { meId: string }) {
               <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-2.5 max-h-[400px]">
                 {detail.messages.map((m: any) => (
                   <div key={m.id} className={`max-w-[88%] rounded-2xl px-3.5 py-2 text-sm ${m.internal ? 'self-center w-[92%] bg-amber-500/10 border border-dashed border-amber-500/40 text-amber-100' : m.senderRole === 'client' ? 'self-start bg-white/10' : m.senderRole === 'system' ? 'self-center bg-white/5 text-gray-500 text-xs' : 'self-end bg-primary/90 text-black'}`}>
-                    <div className="text-[10px] font-semibold opacity-70 mb-0.5">{m.internal ? '🔒 Ichki izoh · ' : ''}{m.senderName}</div>
+                    <div className="text-[10px] font-semibold opacity-70 mb-0.5 flex items-center gap-1">{m.internal && <><Lock className="size-3" />Ichki izoh ·</>} {m.senderName}</div>
                     <div className="whitespace-pre-wrap break-words">{m.body}</div>
                     <div className="text-[10px] opacity-60 mt-1">{ago(m.createdAt)}</div>
                   </div>

@@ -46,6 +46,7 @@ import {
   BarChart2
 } from "lucide-react";
 import { toast } from "sonner";
+import { Droplets } from "lucide-react";
 import { TradingViewChart } from "../trading/TradingViewChart";
 import { liveMarketFeed, LiveMarketStatus } from "../../lib/liveMarketFeed";
 
@@ -366,7 +367,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                   {/* Symbol Icon */}
                   {tabSymbol === 'USOIL' && (
                     <div className="w-4 h-4 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-[10px] text-gray-200">
-                      💧
+                      <Droplets className="size-3.5 text-sky-400" />
                     </div>
                   )}
                   {tabSymbol === 'BTC' && (

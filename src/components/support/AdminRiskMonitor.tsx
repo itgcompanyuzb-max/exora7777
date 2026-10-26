@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { money } from './shared';
 
@@ -23,7 +24,7 @@ export function AdminRiskMonitor() {
       <div className={`text-xl font-bold ${c}`}>{value}</div>
     </div>
   );
-  const accTable = (title: string, rows: any[], empty: string) => (
+  const accTable = (title: ReactNode, rows: any[], empty: string) => (
     <div className="rounded-3xl border border-white/10 bg-[#12161a] p-4">
       <div className="text-sm font-bold mb-2">{title}</div>
       {rows.length === 0 ? <div className="text-xs text-gray-500">{empty}</div> : (
@@ -80,7 +81,7 @@ export function AdminRiskMonitor() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {accTable('⚠ Margin call xavfi (<150%)', d.marginCalls, 'Xavf ostidagi hisob yo\'q')}
+        {accTable(<span className="inline-flex items-center gap-1.5"><AlertTriangle className="size-4 text-amber-400" />Margin call xavfi (&lt;150%)</span>, d.marginCalls, 'Xavf ostidagi hisob yo\'q')}
         {accTable('Eng ko\'p yo\'qotayotganlar', d.topLosers, 'Yo\'q')}
         {accTable('Eng ko\'p yutayotganlar', d.topWinners, 'Yo\'q')}
       </div>

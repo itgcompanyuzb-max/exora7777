@@ -94,7 +94,7 @@ export function SupportCenter({ onLogin }: { onLogin?: () => void }) {
               <div className="text-sm font-semibold mt-1 line-clamp-1">{t.subject}</div>
               <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
                 <span>{CATEGORY_LABEL[t.category] ?? t.category}</span>
-                <span>{t.lastSender === 'agent' && t.status === 'pending' ? '● Yangi javob · ' : ''}{ago(t.updatedAt)}</span>
+                <span className="inline-flex items-center gap-1">{t.lastSender === 'agent' && t.status === 'pending' && <><span className="size-1.5 rounded-full bg-primary" />Yangi javob ·</>} {ago(t.updatedAt)}</span>
               </div>
             </button>
           ))}

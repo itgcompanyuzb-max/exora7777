@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { brokerStore } from "../../lib/brokerStore";
+import { apiFetch } from "../../lib/api";
 import { AdminSupportDesk } from "../support/AdminSupportDesk";
 import { AdminRiskMonitor } from "../support/AdminRiskMonitor";
 import { AdminStaff } from "../support/AdminStaff";
@@ -22,7 +23,11 @@ import {
   ChevronRight,
   TrendingUp,
   Download,
-  Building
+  Building,
+  LayoutDashboard,
+  Headphones,
+  UserCog,
+  Activity
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +46,7 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
 
   const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'kyc' | 'finance' | 'settings' | 'audit' | 'support' | 'risk' | 'staff'>('dashboard');
   const [clientCard, setClientCard] = useState<string | null>(null);
+  const [ticketBadge, setTicketBadge] = useState(0);
 
   // Search & Filter state
   const [searchUser, setSearchUser] = useState('');
@@ -61,6 +67,17 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
       setSymbols(brokerStore.getSymbols());
     });
     return unsub;
+  }, []);
+
+  // Open-ticket counter for the sidebar badge (live backend only)
+  useEffect(() => {
+    if (!brokerStore.isServerMode()) return;
+    let alive = true;
+    const load = () => apiFetch<any>('/api/v1/admin/tickets-stats').then((r) => alive && setTicketBadge((r.byStatus?.open ?? 0) + (r.byStatus?.in_progress ?? 0))).catch(() => {});
+    load();
+    const id = setInterval(load, 10000);
+    window.addEventListener('exora-ticket', load);
+    return () => { alive = false; clearInterval(id); window.removeEventListener('exora-ticket', load); };
   }, []);
 
   // Check RBAC permissions
@@ -124,6 +141,34 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
       u.email.toLowerCase().includes(searchUser.toLowerCase())
   );
 
+  const serverMode = brokerStore.isServerMode();
+  const navGroups: Array<{ title: string; items: Array<{ id: typeof adminTab; label: string; icon: React.ComponentType<{ className?: string }>; show: boolean; badge?: number }> }> = [
+    {
+      title: 'Boshqaruv',
+      items: [
+        { id: 'dashboard', label: 'Statistika', icon: LayoutDashboard, show: true },
+        { id: 'users', label: 'Foydalanuvchilar', icon: Users, show: isSupport, badge: allUsers.length },
+        { id: 'kyc', label: 'KYC navbati', icon: FileCheck, show: isCompliance, badge: pendingKycCount },
+        { id: 'finance', label: 'Moliya', icon: DollarSign, show: isFinance, badge: pendingWithdrawals.length },
+      ],
+    },
+    {
+      title: "Qo'llab-quvvatlash",
+      items: [
+        { id: 'support', label: 'Tiketlar', icon: Headphones, show: serverMode && isSupport, badge: ticketBadge },
+        { id: 'staff', label: 'Xodimlar', icon: UserCog, show: serverMode && isSupport },
+      ],
+    },
+    {
+      title: 'Risk va tizim',
+      items: [
+        { id: 'risk', label: 'Risk monitor', icon: Activity, show: serverMode },
+        { id: 'settings', label: 'Spred sozlamalari', icon: Sliders, show: isSuperAdmin },
+        { id: 'audit', label: 'Audit loglari', icon: History, show: true, badge: auditLogs.length },
+      ],
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       {/* 1. ADMIN HEADER WITH RBAC SELECTOR */}
@@ -166,110 +211,40 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
         </div>
       </div>
 
-      {/* 2. ADMIN TABS NAVIGATION */}
-      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-2">
-        <button
-          onClick={() => setAdminTab('dashboard')}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            adminTab === 'dashboard' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-          }`}
-        >
-          <Building className="size-4" />
-          <span>Statistika (Overview)</span>
-        </button>
+      {/* 2. LEFT SIDEBAR NAVIGATION + CONTENT */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-24 glass rounded-3xl border border-white/10 p-3 flex flex-row lg:flex-col gap-1 overflow-x-auto">
+          {navGroups.map((g) => {
+            const items = g.items.filter((i) => i.show);
+            if (!items.length) return null;
+            return (
+              <div key={g.title} className="flex flex-row lg:flex-col gap-1 lg:mb-2">
+                <div className="hidden lg:block px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">{g.title}</div>
+                {items.map((i) => {
+                  const Icon = i.icon;
+                  const active = adminTab === i.id;
+                  return (
+                    <button
+                      key={i.id}
+                      onClick={() => setAdminTab(i.id)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap text-left ${
+                        active ? 'bg-primary text-black shadow-md' : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span className="flex-1">{i.label}</span>
+                      {i.badge ? (
+                        <span className={`min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${active ? 'bg-black/20 text-black' : 'bg-white/10 text-white'}`}>{i.badge}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </aside>
 
-        {isSupport && (
-          <button
-            onClick={() => setAdminTab('users')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'users' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <Users className="size-4" />
-            <span>Foydalanuvchilar ({allUsers.length})</span>
-          </button>
-        )}
-
-        {isCompliance && (
-          <button
-            onClick={() => setAdminTab('kyc')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'kyc' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <FileCheck className="size-4" />
-            <span>KYC Navbati ({pendingKycCount})</span>
-          </button>
-        )}
-
-        {isFinance && (
-          <button
-            onClick={() => setAdminTab('finance')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'finance' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <DollarSign className="size-4" />
-            <span>Moliya & Withdrawals ({pendingWithdrawals.length})</span>
-          </button>
-        )}
-
-        {isSuperAdmin && (
-          <button
-            onClick={() => setAdminTab('settings')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'settings' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <Sliders className="size-4" />
-            <span>Spred & Risk Sozlamalari</span>
-          </button>
-        )}
-
-        {brokerStore.isServerMode() && isSupport && (
-          <button
-            onClick={() => setAdminTab('support')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'support' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <span>🎧 Support (Tiketlar)</span>
-          </button>
-        )}
-
-        {brokerStore.isServerMode() && (
-          <button
-            onClick={() => setAdminTab('risk')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'risk' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <span>📊 Risk monitor</span>
-          </button>
-        )}
-
-        {brokerStore.isServerMode() && isSupport && (
-          <button
-            onClick={() => setAdminTab('staff')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              adminTab === 'staff' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <span>👥 Xodimlar</span>
-          </button>
-        )}
-
-        <button
-          onClick={() => setAdminTab('audit')}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            adminTab === 'audit' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
-          }`}
-        >
-          <History className="size-4" />
-          <span>Audit Loglari ({auditLogs.length})</span>
-        </button>
-      </div>
-
+        <div className="flex-1 min-w-0 w-full flex flex-col gap-6">
       {/* 3. TAB CONTENT MODULES */}
 
       {adminTab === 'support' && <AdminSupportDesk meId={currentUser.id} />}
@@ -668,6 +643,8 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }
