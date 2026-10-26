@@ -537,7 +537,7 @@ class TradingEngine extends EventEmitter {
     return this.orders.get(id);
   }
   history(accountId: string, limit = 100, offset = 0): Order[] {
-    return (db.prepare("SELECT * FROM orders WHERE account_id = ? AND status IN ('closed','liquidated','cancelled') ORDER BY COALESCE(closed_at, created_at) DESC LIMIT ? OFFSET ?")
+    return (db.prepare("SELECT * FROM orders WHERE account_id = ? AND status IN ('closed','liquidated','cancelled') ORDER BY COALESCE(closed_at, created_at) DESC, ticket DESC LIMIT ? OFFSET ?")
       .all(accountId, limit, offset) as any[]).map((r) => this.rowToOrder(r));
   }
   ledgerOf(accountId: string, limit = 100): unknown[] {
