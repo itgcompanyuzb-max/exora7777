@@ -231,6 +231,7 @@ class MarketData {
   status() {
     return {
       mode: this.feedMode,
+      health: this.health,
       symbols: this.activeSpecs().map((s) => ({
         symbol: s.symbol, source: this.sourceOf(s.symbol), live: this.isLive(s.symbol),
         ageMs: this.lastLive.has(s.symbol) ? Date.now() - this.lastLive.get(s.symbol)! : null,
@@ -267,6 +268,13 @@ class MarketData {
       if (used.has('yahoo')) this.pollYahoo();
     }
     setInterval(() => this.flush(), 5000).unref();
+    if (!this.simulated) {
+      setInterval(() => {
+        const st = this.status().symbols;
+        const stale = st.filter((x) => !x.live && isMarketOpen(SPEC_BY_SYMBOL.get(x.symbol)!)).map((x) => x.symbol);
+        console.log(`[market] health: ${st.filter((x) => x.live).length}/${st.length} live${stale.length ? `; no fresh price (market open): ${stale.join(', ')}` : ''}`);
+      }, 60000).unref();
+    }
   }
 
   private simulateStep() {
@@ -338,29 +346,90 @@ class MarketData {
     }
   }
 
-  /** Poll Yahoo's chart endpoint one symbol at a time; stale quotes (>5 min old) are ignored. */
+  /** Per-source health, exposed through /market/status for diagnostics. */
+  private health: Record<string, { ok: number; fail: number; lastError: string | null; lastOkAt: number | null }> = {};
+  private noteResult(source: string, err?: string) {
+    const h = (this.health[source] ??= { ok: 0, fail: 0, lastError: null, lastOkAt: null });
+    if (err) {
+      if (h.lastError !== err) console.warn(`[market] ${source} problem: ${err}`);
+      h.fail++;
+      h.lastError = err;
+    } else {
+      if (h.lastError) console.log(`[market] ${source} recovered`);
+      h.ok++;
+      h.lastError = null;
+      h.lastOkAt = Date.now();
+    }
+  }
+
+  private applyYahooMeta(symbol: string, meta: any) {
+    const price = Number(meta?.regularMarketPrice);
+    const t = Number(meta?.regularMarketTime);
+    // quotes older than 5 minutes are stale (market closed / provider lag) and never treated as live
+    if (Number.isFinite(price) && (!t || Date.now() / 1000 - t < 300)) this.pushPrice(symbol, price, true);
+  }
+
+  /**
+   * Yahoo polling. First choice is the batch "spark" endpoint (one request for every symbol);
+   * if it is unavailable we fall back to one request per symbol, strictly one at a time with
+   * pacing and exponential back-off on HTTP 429 so Yahoo does not rate-limit us.
+   */
   private pollYahoo() {
     const symbols = [...this.sources].filter(([, src]) => src === 'yahoo').map(([sym]) => sym);
-    const interval = Math.max(500, Number(process.env.YAHOO_POLL_MS || 4000));
-    const step = Math.max(250, Math.floor(interval / Math.max(1, symbols.length)));
-    let i = 0;
-    let warned = false;
-    const tick = async () => {
-      const symbol = symbols[i++ % symbols.length];
-      try {
-        const res = await fetch(this.yahooUrl(symbol, 'interval=1m&range=1d'), { headers: MarketData.YAHOO_HEADERS, signal: AbortSignal.timeout(5000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const meta = ((await res.json()) as any)?.chart?.result?.[0]?.meta;
-        const price = Number(meta?.regularMarketPrice);
-        const t = Number(meta?.regularMarketTime);
-        if (Number.isFinite(price) && (!t || Date.now() / 1000 - t < 300)) this.pushPrice(symbol, price, true);
-        warned = false;
-      } catch (e: any) {
-        if (!warned) console.warn(`[market] Yahoo poll ${symbol} failed: ${e.message}`);
-        warned = true;
+    const interval = Math.max(1000, Number(process.env.YAHOO_POLL_MS || 3000));
+    const base = (process.env.YAHOO_BASE_URL || 'https://query1.finance.yahoo.com').replace(/\/$/, '');
+    const bySymbol = new Map(symbols.map((sym) => [SPEC_BY_SYMBOL.get(sym)!.yahoo!, sym]));
+    let backoff = 0;
+    let batchWorks = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const fetchJson = async (url: string) => {
+      const res = await fetch(url, { headers: MarketData.YAHOO_HEADERS, signal: AbortSignal.timeout(6000) });
+      if (res.status === 429) throw Object.assign(new Error('HTTP 429 (rate limited)'), { rateLimited: true });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<any>;
+    };
+
+    const batch = async (): Promise<boolean> => {
+      const q = [...bySymbol.keys()].map(encodeURIComponent).join(',');
+      const data = await fetchJson(`${base}/v8/finance/spark?symbols=${q}&range=1d&interval=1m`);
+      const rows: any[] = data?.spark?.result ?? [];
+      let n = 0;
+      for (const row of rows) {
+        const sym = bySymbol.get(row?.symbol);
+        const meta = row?.response?.[0]?.meta;
+        if (sym && meta) { this.applyYahooMeta(sym, meta); n++; }
+      }
+      return n > 0;
+    };
+
+    const single = async () => {
+      for (const [ySym, sym] of bySymbol) {
+        const data = await fetchJson(`${base}/v8/finance/chart/${encodeURIComponent(ySym)}?interval=1m&range=1d`);
+        this.applyYahooMeta(sym, data?.chart?.result?.[0]?.meta);
+        await sleep(Math.max(300, Math.floor(interval / bySymbol.size)));
       }
     };
-    setInterval(tick, step).unref();
+
+    const loop = async () => {
+      for (;;) {
+        try {
+          if (batchWorks && !(await batch().catch((e) => { if (e.rateLimited) throw e; return false; }))) {
+            batchWorks = false; // endpoint unavailable -> use per-symbol requests from now on
+            console.log('[market] Yahoo batch endpoint unavailable, using per-symbol polling');
+          }
+          if (!batchWorks) await single();
+          this.noteResult('yahoo');
+          backoff = 0;
+          await sleep(interval);
+        } catch (e: any) {
+          this.noteResult('yahoo', e.message);
+          backoff = e.rateLimited ? Math.min(60000, (backoff || 5000) * 2) : Math.min(15000, (backoff || 1000) * 2);
+          await sleep(backoff);
+        }
+      }
+    };
+    loop();
   }
 
   private reconnect(fn: () => void, attempt: number) {
@@ -381,11 +450,11 @@ class MarketData {
       try {
         const d = JSON.parse(raw.toString()).data;
         const sym = map.get(String(d.s).toLowerCase());
-        if (sym) this.pushPrice(sym, (parseFloat(d.b) + parseFloat(d.a)) / 2, true);
+        if (sym) { this.pushPrice(sym, (parseFloat(d.b) + parseFloat(d.a)) / 2, true); this.noteResult('binance'); }
       } catch { /* ignore malformed frame */ }
     });
     ws.on('close', () => this.reconnect(() => this.connectBinance(attempt + 1), attempt));
-    ws.on('error', (e) => console.warn('[market] Binance feed error:', e.message));
+    ws.on('error', (e) => this.noteResult('binance', e.message));
   }
 
   private connectFinnhub(attempt = 0) {
@@ -409,7 +478,7 @@ class MarketData {
       } catch { /* ignore malformed frame */ }
     });
     ws.on('close', () => this.reconnect(() => this.connectFinnhub(attempt + 1), attempt));
-    ws.on('error', (e) => console.warn('[market] Finnhub feed error:', e.message));
+    ws.on('error', (e) => this.noteResult('finnhub', e.message));
   }
 }
 
