@@ -1,5 +1,5 @@
 // Fills a RUNNING server with presentation data: an operator, 3 clients, support tickets and open trades.
-// Usage: set ADMIN_PASSWORD=... && npm run seed:demo   (server must be running; crypto/forex need a live price)
+// Usage: the server must run with OTP_REQUIRED=off (clients are created without phone verification), then: set ADMIN_PASSWORD=... && npm run seed:demo
 const base = `http://localhost:${process.env.PORT || 3000}/api/v1`;
 const J = (t) => ({ 'content-type': 'application/json', ...(t ? { Authorization: 'Bearer ' + t } : {}) });
 const post = async (p, b, t) => (await fetch(base + p, { method: 'POST', headers: J(t), body: JSON.stringify(b) })).json();

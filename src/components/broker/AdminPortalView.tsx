@@ -4,6 +4,7 @@ import { apiFetch } from "../../lib/api";
 import { AdminSupportDesk } from "../support/AdminSupportDesk";
 import { AdminRiskMonitor } from "../support/AdminRiskMonitor";
 import { AdminStaff } from "../support/AdminStaff";
+import { AdminIntegrations } from "../support/AdminIntegrations";
 import { ClientDrawer } from "../support/ClientDrawer";
 import { translations, Language } from "../../lib/i18n";
 import { BrokerUser, KycRecord, Transaction, AuditLogItem, ForexSymbolRate, UserRole } from "../../types/broker";
@@ -27,7 +28,8 @@ import {
   LayoutDashboard,
   Headphones,
   UserCog,
-  Activity
+  Activity,
+  Plug
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,7 +46,7 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(brokerStore.getAuditLogs());
   const [symbols, setSymbols] = useState<ForexSymbolRate[]>(brokerStore.getSymbols());
 
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'kyc' | 'finance' | 'settings' | 'audit' | 'support' | 'risk' | 'staff'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'kyc' | 'finance' | 'settings' | 'audit' | 'support' | 'risk' | 'staff' | 'integrations'>('dashboard');
   const [clientCard, setClientCard] = useState<string | null>(null);
   const [ticketBadge, setTicketBadge] = useState(0);
 
@@ -164,6 +166,7 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
       items: [
         { id: 'risk', label: 'Risk monitor', icon: Activity, show: serverMode },
         { id: 'settings', label: 'Spred sozlamalari', icon: Sliders, show: isSuperAdmin },
+        { id: 'integrations', label: 'Integratsiyalar', icon: Plug, show: serverMode && isSuperAdmin },
         { id: 'audit', label: 'Audit loglari', icon: History, show: true, badge: auditLogs.length },
       ],
     },
@@ -249,6 +252,7 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
 
       {adminTab === 'support' && <AdminSupportDesk meId={currentUser.id} />}
       {adminTab === 'risk' && <AdminRiskMonitor />}
+      {adminTab === 'integrations' && <AdminIntegrations />}
       {adminTab === 'staff' && <AdminStaff canManage={isSuperAdmin} meId={currentUser.id} />}
       {clientCard && <ClientDrawer userId={clientCard} onClose={() => setClientCard(null)} />}
 

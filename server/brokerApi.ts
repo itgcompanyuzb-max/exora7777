@@ -7,6 +7,8 @@ import { hashPassword, verifyPassword, signToken, requireAuth, requireRole, rate
 import { tradingEngine, Account, Order, ENGINE_CONFIG } from './tradingEngine.js';
 import { marketData } from './marketData.js';
 import { clientSupportRouter, adminSupportRouter } from './support.js';
+import { sendCode, verifyCode, normalizePhone, recentSends, otpRequired, gatewayToken, testGateway } from './telegram.js';
+import { setSecret, deleteSecret } from './settings.js';
 import { SPEC_BY_SYMBOL, SYMBOL_SPECS, normalizeSymbol, displayName, isMarketOpen } from './symbols.js';
 
 export const brokerRouter = Router();
@@ -39,20 +41,43 @@ function ownedOrder(req: Request, orderId: string): { order: Order; acc: Account
 // ============================================================================
 // 1. AUTH
 // ============================================================================
-brokerRouter.post('/auth/register', rateLimit((r) => `reg:${ip(r)}`, 10, 3600_000), (req, res) => {
-  const { email, phone, fullName, password } = req.body ?? {};
+// Step 1 of sign-up: send a verification code to the phone (Telegram Gateway). The code never reaches the browser.
+brokerRouter.post('/auth/otp/send', rateLimit((r) => `otp:${ip(r)}`, 10, 3600_000), async (req, res) => {
+  const phone = normalizePhone(req.body?.phone);
+  if (!phone) return bad(res, "Telefon raqami noto'g'ri. Misol: +998 90 123 45 67");
+  if (db.prepare('SELECT 1 FROM users WHERE phone = ? AND phone_verified = 1').get(phone)) return bad(res, "Bu raqam allaqachon ro'yxatdan o'tgan", 409);
+  if (recentSends(phone) >= 3) return bad(res, "Juda ko'p urinish. 10 daqiqadan keyin qayta urining.", 429);
+  try {
+    const r = await sendCode(phone);
+    audit(null, 'otp_send', { phone, channel: r.channel }, ip(req));
+    res.json({ success: true, otpId: r.otpId, channel: r.channel, expiresInSec: 300 });
+  } catch (e: any) {
+    audit(null, 'otp_send_failed', { phone, error: e.message }, ip(req));
+    bad(res, e.message || 'Kod yuborilmadi', 502);
+  }
+});
+
+brokerRouter.post('/auth/register', rateLimit((r) => `reg:${ip(r)}`, 10, 3600_000), async (req, res) => {
+  const { email, fullName, password, otpId, otpCode } = req.body ?? {};
   if (typeof email !== 'string' || !EMAIL_RE.test(email)) return bad(res, 'Valid email is required');
   if (typeof fullName !== 'string' || fullName.trim().length < 2) return bad(res, 'Full name is required');
   if (typeof password !== 'string' || password.length < 8) return bad(res, 'Password must be at least 8 characters long');
   const e = email.trim().toLowerCase();
+  const phone = normalizePhone(req.body?.phone);
+  if (otpRequired()) {
+    if (!phone) return bad(res, "Telefon raqamini kiriting");
+    const v = await verifyCode(String(otpId ?? ''), phone, String(otpCode ?? '').trim());
+    if (!v.ok) return bad(res, v.error);
+  }
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(e)) return bad(res, 'Email is already registered', 409);
+  if (phone && db.prepare('SELECT 1 FROM users WHERE phone = ?').get(phone)) return bad(res, "Bu telefon raqami allaqachon ro'yxatdan o'tgan", 409);
 
   const id = `usr_${crypto.randomUUID()}`;
-  db.prepare('INSERT INTO users (id,email,full_name,phone,password_hash,role,status,kyc_status,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
-    .run(id, e, fullName.trim(), typeof phone === 'string' ? phone : null, hashPassword(password), 'client', 'active', 'unsubmitted', new Date().toISOString());
+  db.prepare('INSERT INTO users (id,email,full_name,phone,phone_verified,password_hash,role,status,kyc_status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .run(id, e, fullName.trim(), phone, otpRequired() ? 1 : 0, hashPassword(password), 'client', 'active', 'unsubmitted', new Date().toISOString());
   tradingEngine.createAccount(id, { isDemo: true });
   tradingEngine.createAccount(id, { isDemo: false });
-  audit(id, 'register', { email: e }, ip(req));
+  audit(id, 'register', { email: e, phoneVerified: otpRequired() }, ip(req));
   res.json({ success: true, user: userPayload(id), token: signToken(id, 'client') });
 });
 
@@ -336,6 +361,47 @@ admin.get('/accounts', (_req, res) => res.json({ success: true, accounts: [...tr
 admin.get('/positions', (_req, res) => res.json({ success: true, positions: tradingEngine.openOrders().map(orderView) }));
 admin.get('/audit', requireRole('super_admin', 'compliance_admin'), (_req, res) =>
   res.json({ success: true, audit: db.prepare('SELECT a.*, u.email AS actor_email, u.role AS actor_role FROM audit a LEFT JOIN users u ON u.id = a.actor ORDER BY a.id DESC LIMIT 500').all() }));
+
+// ---- integrations (super admin): secrets are encrypted at rest and never returned ----
+admin.get('/integrations', requireRole('super_admin'), (req, res) => {
+  const gw = gatewayToken();
+  const staffNoCreds = db.prepare("SELECT COUNT(*) n FROM users WHERE role != 'client' AND status = 'active'").get() as any;
+  res.json({
+    success: true,
+    security: {
+      production: process.env.NODE_ENV === 'production',
+      jwtSecretFromEnv: !!process.env.JWT_SECRET,
+      https: req.secure || req.headers['x-forwarded-proto'] === 'https',
+      otpRequired: otpRequired(),
+      telegramConfigured: !!gw,
+      testMode: TEST_MODE,
+      defaultAdminActive: !!db.prepare("SELECT 1 FROM users WHERE email = 'admin@exora.local' AND status = 'active'").get(),
+      staffCount: staffNoCreds.n,
+    },
+    telegram: { configured: !!gw, source: gw?.source ?? null, hint: gw ? `…${gw.token.slice(-4)}` : null, otpRequired: otpRequired(), devFallback: !gw && process.env.NODE_ENV !== 'production' },
+  });
+});
+admin.post('/integrations/telegram', requireRole('super_admin'), (req, res) => {
+  const token = String(req.body?.token ?? '').trim();
+  if (token.length < 20 || /\s/.test(token)) return bad(res, "Token noto'g'ri ko'rinadi");
+  setSecret('telegram_gateway_token', token);
+  audit(req.user!.id, 'integration_telegram_set', { hint: token.slice(-4) }, ip(req));
+  res.json({ success: true });
+});
+admin.delete('/integrations/telegram', requireRole('super_admin'), (req, res) => {
+  deleteSecret('telegram_gateway_token');
+  audit(req.user!.id, 'integration_telegram_removed', undefined, ip(req));
+  res.json({ success: true });
+});
+admin.post('/integrations/telegram/test', requireRole('super_admin'), async (req, res) => {
+  const phone = normalizePhone(req.body?.phone);
+  if (!phone) return bad(res, "Telefon raqami noto'g'ri");
+  try {
+    res.json({ success: true, message: await testGateway(phone) });
+  } catch (e: any) {
+    bad(res, e.message, 502);
+  }
+});
 
 admin.use(adminSupportRouter);
 brokerRouter.use('/support', clientSupportRouter);

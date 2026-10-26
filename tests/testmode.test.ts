@@ -1,6 +1,7 @@
 process.env.DB_PATH = ':memory:';
 process.env.MARKET_HOURS = 'off';
 process.env.JWT_SECRET = 'test';
+process.env.OTP_REQUIRED = 'off';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';

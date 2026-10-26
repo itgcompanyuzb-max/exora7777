@@ -79,3 +79,9 @@ Clients open and follow tickets in *Support hub*; replies arrive live over WebSo
 
 ## White-label
 Set `BRAND_NAME` (and optionally `BRAND_SHORT`, `BRAND_INITIALS`) in `.env` to rename the whole UI without code changes.
+
+## Phone verification (Telegram Gateway) and security
+* Sign-up sends a 6-digit code to the user's Telegram through Telegram Gateway; **Telegram generates and delivers the code, the server only asks whether it is correct** (`/api/v1/auth/otp/send`, then `otpId` + `otpCode` on `/auth/register`). Limits: 3 codes per phone / 10 min, 5 attempts per code, 5-minute expiry, one account per phone.
+* Put the Gateway token in **Admin → Integratsiyalar** (stored AES-256-GCM encrypted in the DB, never sent back to the browser) or in `.env` (`TELEGRAM_GATEWAY_TOKEN`). Without a token, development mode prints the code to the server console only; production refuses to register.
+* Admin → Integratsiyalar also shows a security checklist (production mode, JWT secret, HTTPS, OTP, default admin, test mode).
+* Staff sessions last 4 h (clients 12 h). Legacy open mail/OTP relay endpoints were removed or restricted to super admins.

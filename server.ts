@@ -52,11 +52,17 @@ async function startServer() {
   app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN"); // the chart library is same-origin
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (_req.path.startsWith("/api")) res.setHeader("Cache-Control", "no-store");
+    if (process.env.NODE_ENV === "production" && (_req.secure || _req.headers["x-forwarded-proto"] === "https")) {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
     next();
   });
   app.use(express.json({ limit: "200kb" }));
   // Back-office mail tooling must never be publicly reachable.
-  app.use(["/api/emails", "/api/send-test-email"], requireAuth, requireRole("super_admin"));
+  app.use(["/api/emails", "/api/send-test-email", "/api/send-otp"], requireAuth, requireRole("super_admin"));
   app.use(express.static(path.join(process.cwd(), "public")));
 
   // Forex Broker API v1 router
@@ -82,71 +88,7 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString(), priceFeed: marketData.feedMode });
   });
 
-  // Telegram Gateway OTP endpoint (@VerificationCodes)
-  app.post("/api/send-telegram-otp", async (req, res) => {
-    try {
-      const { phone, code, purpose } = req.body;
-      if (!phone) {
-        return res.status(400).json({ error: "Phone number is required" });
-      }
-
-      let cleaned = phone.trim().replace(/[^\d+]/g, "");
-      if (!cleaned.startsWith("+")) {
-        if (cleaned.startsWith("998")) cleaned = "+" + cleaned;
-        else if (cleaned.length === 9) cleaned = "+998" + cleaned;
-        else cleaned = "+" + cleaned;
-      }
-
-      const otpCode = code || Math.floor(100000 + Math.random() * 900000).toString();
-      const token = process.env.TELEGRAM_GATEWAY_TOKEN || "";
-
-      // Call Telegram Gateway API
-      const tgRes = await fetch("https://gatewayapi.telegram.org/sendVerificationMessage", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone_number: cleaned,
-          code: otpCode,
-          ttl: 300,
-        }),
-      });
-
-      const tgData: any = await tgRes.json();
-      console.log(`[Telegram Gateway API] To: ${cleaned} Code: ${otpCode} Res:`, tgData);
-
-      if (tgData.ok) {
-        return res.json({
-          success: true,
-          provider: "telegram_gateway",
-          sender: "@VerificationCodes",
-          formattedPhone: cleaned,
-          requestId: tgData.result?.request_id,
-          delivered: true,
-        });
-      }
-
-      // Handle balance or test response gracefully
-      const isLowBalance = tgData.error === "BALANCE_NOT_ENOUGH";
-      return res.json({
-        success: true,
-        provider: "telegram_gateway",
-        sender: "@VerificationCodes",
-        formattedPhone: cleaned,
-        delivered: false,
-        error: tgData.error,
-        code: otpCode,
-        notice: isLowBalance
-          ? "Telegram Gateway balansida mablag' yetarli emas (gateway.telegram.org da to'ldirish kerak). Sinov kodi taqdim etildi."
-          : `Telegram Gateway xatosi: ${tgData.error}`,
-      });
-    } catch (err: any) {
-      console.error("Telegram Gateway error:", err);
-      res.status(500).json({ success: false, error: err?.message || "Failed to send Telegram verification" });
-    }
-  });
+  // Phone verification lives in /api/v1/auth/otp/* (server-side codes via Telegram Gateway).
 
   // Direct test email endpoint
   app.post("/api/send-test-email", async (req, res) => {

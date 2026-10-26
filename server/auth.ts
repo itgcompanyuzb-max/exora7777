@@ -1,14 +1,23 @@
 // server/auth.ts
 // Password hashing (scrypt), HS256 JWT, auth middleware and RBAC.
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import type { Request, Response, NextFunction } from 'express';
 import { db } from './db.js';
 
 let secret = process.env.JWT_SECRET || '';
 if (!secret) {
   if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET must be set in production');
-  secret = crypto.randomBytes(32).toString('hex');
-  console.warn('[auth] JWT_SECRET not set — using an ephemeral secret (sessions reset on restart).');
+  // Development: keep a generated secret on disk so sessions and encrypted settings survive restarts.
+  const file = path.join(process.cwd(), 'data', '.jwt-secret');
+  try {
+    secret = fs.readFileSync(file, 'utf8').trim();
+  } catch {
+    secret = crypto.randomBytes(32).toString('hex');
+    try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, secret, { mode: 0o600 }); } catch { /* read-only fs: ephemeral */ }
+  }
+  console.warn('[auth] JWT_SECRET not set — using a development secret from data/.jwt-secret. Set JWT_SECRET in production.');
 }
 
 const b64 = (b: Buffer | string) => Buffer.from(b).toString('base64url');
@@ -33,12 +42,15 @@ export interface TokenPayload {
   exp: number;
 }
 
-export function signToken(userId: string, role: string, ttlSec = 12 * 3600): string {
+export function signToken(userId: string, role: string, ttlSec = role === 'client' ? 12 * 3600 : 4 * 3600): string {
   const head = b64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = b64(JSON.stringify({ sub: userId, role, exp: Math.floor(Date.now() / 1000) + ttlSec }));
   const sig = crypto.createHmac('sha256', secret).update(`${head}.${body}`).digest('base64url');
   return `${head}.${body}.${sig}`;
 }
+
+/** Key for encrypting integration secrets at rest (SETTINGS_SECRET falls back to JWT_SECRET). */
+export const settingsKey = () => crypto.createHash('sha256').update(`settings:${process.env.SETTINGS_SECRET || secret}`).digest();
 
 export function verifyToken(token: string): TokenPayload | null {
   const parts = token.split('.');

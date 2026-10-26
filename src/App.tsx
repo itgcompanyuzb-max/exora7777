@@ -140,15 +140,7 @@ export default function App() {
                   <TrendingUp className="size-3.5" />
                   <span>{t.webTraderTitle}</span>
                 </button>
-                <button
-                  onClick={() => setActiveTab('metatrader')}
-                  className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
-                    activeTab === 'metatrader' ? 'bg-[#2962FF] text-white font-extrabold shadow-md' : 'text-gray-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                  <span>MetaTrader Terminal</span>
-                </button>
+                {/* MetaTrader-style terminal is hidden: it runs on a local simulator, not on live broker prices. */}
                 <button
                   onClick={() => setActiveTab('cabinet')}
                   className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
@@ -418,7 +410,6 @@ export default function App() {
             lang={lang}
             onOpenDeposit={() => setActiveTab('cabinet')}
             onReturnToCabinet={() => setActiveTab('cabinet')}
-            onSwitchToMetaTrader={() => setActiveTab('metatrader')}
           />
         </div>
       ) : activeTab === 'metatrader' ? (

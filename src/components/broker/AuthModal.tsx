@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { apiLogin, apiRegister } from '../../lib/api';
+import React, { useEffect, useState } from "react";
+import { apiFetch, apiLogin, apiRegister } from '../../lib/api';
 import { startServerSync } from '../../lib/serverSync';
 import { translations, Language } from "../../lib/i18n";
 import { brokerStore } from "../../lib/brokerStore";
@@ -44,34 +44,39 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
+  const [busy, setBusy] = useState(false);
+
+  const [otpId, setOtpId] = useState('');
+  const [otpChannel, setOtpChannel] = useState<'telegram' | 'console' | ''>('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  // The code is generated and delivered by Telegram Gateway; the browser never sees it.
   async function handleSendOtp() {
-    if (!phone || phone.length < 9) {
+    if (!phone || phone.replace(/\D/g, '').length < 9) {
       toast.error("Iltimos, telefon raqamingizni to'liq kiriting");
       return;
     }
     setIsSendingOtp(true);
     try {
-      // Call telegram OTP backend if available or simulated
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      await fetch('/api/send-telegram-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, purpose: 'broker_register' }),
-      }).catch(() => null);
-
+      const r = await apiFetch<{ otpId: string; channel: 'telegram' | 'console' }>('/api/v1/auth/otp/send', { body: { phone } });
+      setOtpId(r.otpId);
+      setOtpChannel(r.channel);
       setOtpSent(true);
-      setOtpCode(code); // Pre-fill for instant frictionless preview testing!
-      toast.success(`Tasdiqlash kodi Telegram @VerificationCodes orqali yuborildi: ${code}`);
-    } catch {
-      toast.info("Kod yuborildi: 729148");
-      setOtpCode("729148");
-      setOtpSent(true);
+      setOtpCode('');
+      setCooldown(60);
+      toast.success(r.channel === 'telegram' ? "Tasdiqlash kodi Telegram'ga yuborildi. Telegram ilovasini oching." : "Test rejimi: kod server konsolida (Telegram ulanmagan).");
+    } catch (err: any) {
+      toast.error(err.message || 'Kod yuborilmadi');
     } finally {
       setIsSendingOtp(false);
     }
   }
-
-  const [busy, setBusy] = useState(false);
 
   async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,9 +86,9 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
     }
     setBusy(true);
     try {
-      await apiRegister({ fullName, email, phone, password });
+      await apiRegister({ fullName, email, phone, password, otpId, otpCode });
       if (!(await startServerSync())) throw new Error("Serverga ulanib bo'lmadi");
-      toast.success("Ro'yxatdan muvaffaqiyatli o'tdingiz! $10,000 lik Demo va Real hisob ochildi.");
+      toast.success("Ro'yxatdan muvaffaqiyatli o'tdingiz! $10,000 lik Demo hisob ochildi.");
       onSuccess?.();
       onClose();
     } catch (err: any) {
@@ -167,7 +172,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
             </div>
 
             <div>
-              <label className="text-[11px] text-muted-foreground block mb-1">Telefon Raqami (OTP uchun):</label>
+              <label className="text-[11px] text-muted-foreground block mb-1">Telefon raqami (Telegram'ga kod yuboriladi):</label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <input
@@ -183,10 +188,10 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
                 <button
                   type="button"
                   onClick={handleSendOtp}
-                  disabled={isSendingOtp}
-                  className="px-3 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-bold text-white shrink-0"
+                  disabled={isSendingOtp || cooldown > 0}
+                  className="px-3 rounded-xl bg-white/10 disabled:opacity-50 hover:bg-white/20 text-[11px] font-bold text-white shrink-0"
                 >
-                  {isSendingOtp ? "Yuborilmoqda..." : "Kod olish"}
+                  {isSendingOtp ? "Yuborilmoqda..." : cooldown > 0 ? `${cooldown}s` : otpSent ? "Qayta yuborish" : "Kod olish"}
                 </button>
               </div>
             </div>
@@ -194,14 +199,16 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
             {otpSent && (
               <div>
                 <label className="text-[11px] text-primary block mb-1">
-                  Telegram / SMS Tasdiqlash Kodi:
+                  Telegram'dan kelgan tasdiqlash kodi:
                 </label>
                 <input
                   type="text"
                   required
                   placeholder="6 xonali kod"
                   value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   className="w-full bg-primary/10 border border-primary/40 rounded-xl p-2.5 text-center font-mono font-bold text-sm text-primary outline-none"
                 />
               </div>

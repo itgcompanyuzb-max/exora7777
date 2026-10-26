@@ -115,6 +115,22 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ticket_msgs ON ticket_messages(ticket_id);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS otp_requests (
+  id TEXT PRIMARY KEY,
+  phone TEXT NOT NULL,
+  provider_request_id TEXT,
+  code_hash TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_requests(phone, created_at);
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -130,6 +146,9 @@ CREATE TABLE IF NOT EXISTS candles (
   PRIMARY KEY (symbol, time)
 );
 `);
+
+// Additive migrations for databases created by earlier versions.
+try { db.exec('ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0'); } catch { /* already present */ }
 
 export function audit(actor: string | null, action: string, detail?: unknown, ip?: string) {
   db.prepare('INSERT INTO audit (actor, action, detail, ip, created_at) VALUES (?,?,?,?,?)').run(
