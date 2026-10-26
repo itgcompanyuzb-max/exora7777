@@ -55,12 +55,13 @@ interface WebTraderViewProps {
   onOpenDeposit: () => void;
   onReturnToCabinet?: () => void;
   onSwitchToMetaTrader?: () => void;
+  onLogout?: () => void;
 }
 
 type TimeFrame = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1D' | '1W';
 type ChartStyleType = 'candles' | 'line' | 'area' | 'bars';
 
-export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitchToMetaTrader }: WebTraderViewProps) {
+export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitchToMetaTrader, onLogout }: WebTraderViewProps) {
   const t = translations[lang];
   const [symbols, setSymbols] = useState<ForexSymbolRate[]>(brokerStore.getSymbols());
 
@@ -555,7 +556,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
               title="Bildirishnomalar"
             >
               <Bell className="size-4" />
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              {!serverMode && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
             </button>
 
             {showNotifications && (
@@ -563,7 +564,10 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                 <div className="font-bold text-white text-xs border-b border-[#22282e] pb-1.5 mb-2">
                   Xabarlar va Eslatmalar
                 </div>
-                <div className="space-y-2 text-xs">
+                {serverMode ? (
+                  <div className="py-4 text-center text-xs text-gray-500">Yangi xabar yo'q</div>
+                ) : (
+                  <div className="space-y-2 text-xs">
                   <div className="p-2 rounded-lg bg-white/5 border border-white/5">
                     <div className="font-bold text-emerald-400">Bozor faol holatda</div>
                     <div className="text-gray-400 text-[10px] mt-0.5">XAU/USD va asosiy kripto juftliklarida spred minimal darajada.</div>
@@ -573,6 +577,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                     <div className="text-gray-400 text-[10px] mt-0.5">Bugun AQSH savdo balansi va NFP kutilmoqda.</div>
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -598,27 +603,27 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                     <Wallet className="size-5 text-primary" />
                     <span className="text-[11px] font-bold text-white">Kabinet</span>
                   </button>
-                  <button 
+                  {!serverMode && (<button 
                     onClick={() => { setShowAppMenu(false); setActiveLeftDrawer('calendar'); }}
                     className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1.5 text-center transition-colors cursor-pointer"
                   >
                     <Calendar className="size-5 text-blue-400" />
                     <span className="text-[11px] font-bold text-white">Taqvim</span>
-                  </button>
-                  <button 
+                  </button>)}
+                  {!serverMode && (<button 
                     onClick={() => { setShowAppMenu(false); setActiveLeftDrawer('alerts'); }}
                     className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1.5 text-center transition-colors cursor-pointer"
                   >
                     <Clock className="size-5 text-amber-400" />
                     <span className="text-[11px] font-bold text-white">Alertlar</span>
-                  </button>
-                  <button 
+                  </button>)}
+                  {!serverMode && (<button 
                     onClick={() => { setShowAppMenu(false); setActiveLeftDrawer('api'); }}
                     className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1.5 text-center transition-colors cursor-pointer"
                   >
                     <span className="text-base font-bold font-mono text-purple-400">{'{}'}</span>
                     <span className="text-[11px] font-bold text-white">API Bot</span>
-                  </button>
+                  </button>)}
                 </div>
               </div>
             )}
@@ -660,6 +665,15 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                     <ShieldCheck className="size-3.5 text-emerald-400" />
                     <span>Mablag' kiritish (Deposit)</span>
                   </button>
+                  {onLogout && (
+                    <button
+                      onClick={() => { setShowProfileMenu(false); onLogout(); }}
+                      className="w-full text-left p-2 rounded-lg hover:bg-rose-500/10 text-rose-400 flex items-center gap-2 cursor-pointer"
+                    >
+                      <LogOut className="size-3.5" />
+                      Tizimdan chiqish
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -716,7 +730,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
             </button>
 
             {/* 2. Economic Calendar */}
-            <button
+            {!serverMode && (<button
               onClick={() => setActiveLeftDrawer(activeLeftDrawer === 'calendar' ? 'none' : 'calendar')}
               className={`p-2 rounded-lg transition-colors cursor-pointer ${
                 activeLeftDrawer === 'calendar' ? 'bg-[#ffde00] text-black shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -724,10 +738,10 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
               title="Iqtisodiy Taqvim"
             >
               <Calendar className="size-4" />
-            </button>
+            </button>)}
 
             {/* 3. Alerts */}
-            <button
+            {!serverMode && (<button
               onClick={() => setActiveLeftDrawer(activeLeftDrawer === 'alerts' ? 'none' : 'alerts')}
               className={`p-2 rounded-lg transition-colors cursor-pointer ${
                 activeLeftDrawer === 'alerts' ? 'bg-[#ffde00] text-black shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -735,10 +749,10 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
               title="Narx signallari (Alerts)"
             >
               <Clock className="size-4" />
-            </button>
+            </button>)}
 
             {/* 4. API Code {} */}
-            <button
+            {!serverMode && (<button
               onClick={() => setActiveLeftDrawer(activeLeftDrawer === 'api' ? 'none' : 'api')}
               className={`p-2 rounded-lg transition-colors cursor-pointer font-mono font-bold ${
                 activeLeftDrawer === 'api' ? 'bg-[#ffde00] text-black shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -746,11 +760,11 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
               title="Savdo API va Webhooklar"
             >
               {'{}'}
-            </button>
+            </button>)}
           </div>
 
           {/* Bottom Settings Gear */}
-          <button
+          {!serverMode && (<button
             onClick={() => setActiveLeftDrawer(activeLeftDrawer === 'settings' ? 'none' : 'settings')}
             className={`p-2 rounded-lg transition-colors cursor-pointer ${
               activeLeftDrawer === 'settings' ? 'bg-[#ffde00] text-black shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -758,7 +772,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
             title="Terminal Sozlamalari"
           >
             <Sliders className="size-4" />
-          </button>
+          </button>)}
         </aside>
 
         {/* SLIDE-OUT LEFT DRAWERS */}

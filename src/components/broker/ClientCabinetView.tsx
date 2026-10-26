@@ -51,11 +51,22 @@ import {
   List,
   Grid,
   LogOut,
-  BarChart3
+  BarChart3,
+  LayoutGrid,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Receipt,
+  LifeBuoy,
+  UserRound
 } from "lucide-react";
 import { toast } from "sonner";
 import { TradingViewChart } from "../trading/TradingViewChart";
 import { SupportCenter } from "../support/SupportCenter";
+import { CabinetPerformance } from "../cabinet/CabinetPerformance";
+import { CabinetHistory } from "../cabinet/CabinetHistory";
+import { CabinetStatement } from "../cabinet/CabinetStatement";
+import { CabinetFunds } from "../cabinet/CabinetFunds";
+import { CabinetProfile } from "../cabinet/CabinetProfile";
 
 interface ClientCabinetViewProps {
   lang: Language;
@@ -63,9 +74,10 @@ interface ClientCabinetViewProps {
   onOpenTrade: () => void;
   onOpenMedia?: () => void;
   onLogout?: () => void;
+  onOpenAdmin?: () => void;
 }
 
-export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, onLogout }: ClientCabinetViewProps) {
+export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, onLogout, onOpenAdmin }: ClientCabinetViewProps) {
   const t = translations[lang];
   const [currentUser, setCurrentUser] = useState(brokerStore.getActiveUser());
   const [accounts, setAccounts] = useState<TradingAccount[]>(brokerStore.getAccounts());
@@ -88,7 +100,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Accounts view state
-  const [accountTypeTab, setAccountTypeTab] = useState<'real' | 'demo'>('real');
+  const [accountTypeTab, setAccountTypeTab] = useState<'real' | 'demo'>(brokerStore.isServerMode() && (brokerStore.getFeedInfo()?.testMode ?? true) ? 'demo' : 'real');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [hideArchived, setHideArchived] = useState(false);
@@ -148,7 +160,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showPwaBanner, setShowPwaBanner] = useState(true);
+  const [showPwaBanner, setShowPwaBanner] = useState(!brokerStore.isServerMode());
 
   // Address verification form state
   const [addressCountry, setAddressCountry] = useState('Uzbekistan');
@@ -306,6 +318,8 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
   // Theme styling helpers
   const isDark = cabinetTheme === 'dark';
+  const serverMode = brokerStore.isServerMode();
+  const testMode = serverMode && (brokerStore.getFeedInfo()?.testMode ?? true);
   // With the live backend, "help" opens the real ticket center instead of the scripted chat bot.
   function openSupport() {
     if (brokerStore.isServerMode()) setCurrentNav('support_hub');
@@ -357,7 +371,8 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               title="Hisob balansi va tezkor amallar"
             >
               <span className="font-bold text-sm tracking-tight font-mono">
-                {hideBalance ? '•••••• USD' : `${totalRealBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}
+                {hideBalance ? '•••••• USD' : `${(testMode ? accounts.filter((a) => a.isDemo).reduce((x, a) => x + a.balance, 0) : totalRealBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}
+                {testMode && <span className="ml-2 text-[10px] font-sans font-bold text-amber-500">DEMO</span>}
               </span>
               <ChevronDown className={`size-3.5 text-gray-400 transition-transform duration-200 ${showBalanceDropdown ? 'rotate-180 text-[#ffde00]' : ''}`} />
             </button>
@@ -396,7 +411,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   {/* Transfer button */}
                   <button
                     onClick={() => { setCurrentNav('transfer'); setShowBalanceDropdown(false); }}
-                    className="flex flex-col items-center gap-2 group cursor-pointer"
+                    className={`${serverMode ? 'hidden ' : ''}flex flex-col items-center gap-2 group cursor-pointer`}
                   >
                     <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-[#232832] group-hover:bg-[#ffde00] group-hover:text-black dark:group-hover:bg-[#ffde00] dark:group-hover:text-black border border-gray-200/60 dark:border-[#2f3542] flex items-center justify-center text-gray-800 dark:text-gray-200 transition-all duration-150 shadow-xs group-active:scale-95">
                       <ArrowRightLeft className="size-5 transition-transform group-hover:rotate-180" />
@@ -432,7 +447,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 {/* Funding wallet card */}
                 <div
                   onClick={() => { setCurrentNav('funding_wallet'); setShowBalanceDropdown(false); }}
-                  className="mt-3 p-3.5 rounded-xl bg-gray-50 dark:bg-[#20252f] hover:bg-gray-100 dark:hover:bg-[#272d38] border border-gray-200/70 dark:border-[#2b313d] transition-all cursor-pointer flex items-center justify-between group"
+                  className={`${serverMode ? 'hidden ' : ''}mt-3 p-3.5 rounded-xl bg-gray-50 dark:bg-[#20252f] hover:bg-gray-100 dark:hover:bg-[#272d38] border border-gray-200/70 dark:border-[#2b313d] transition-all cursor-pointer flex items-center justify-between group`}
                 >
                   <div>
                     <div className="text-base sm:text-lg font-bold tracking-tight text-gray-900 dark:text-white font-mono">
@@ -558,7 +573,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   <p className="font-bold text-sm text-gray-900 dark:text-white">{currentUser.fullName}</p>
                   <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
                   <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
-                    KYC: {currentUser.kycStatus === 'approved' ? 'Tasdiqlangan' : 'Kutilmoqda'}
+                    KYC: {currentUser.kycStatus === 'approved' ? 'Tasdiqlangan' : currentUser.kycStatus === 'pending' ? 'Tekshirilmoqda' : currentUser.kycStatus === 'rejected' ? 'Rad etilgan' : 'Topshirilmagan'}
                   </div>
                 </div>
                 <div className="py-2 flex flex-col gap-1 text-xs">
@@ -575,25 +590,34 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   >
                     Profil Sozlamalari
                   </button>
-                  <button 
+                  {!serverMode && (<button 
                     onClick={() => { setShowAddressModal(true); setShowProfileMenu(false); }}
                     className="text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 font-medium text-amber-600 dark:text-amber-400"
                   >
                     Manzilni Tasdiqlash
-                  </button>
-                  <button 
+                  </button>)}
+                  {!serverMode && (<button 
                     onClick={() => { setCurrentNav('referrals'); setShowProfileMenu(false); }}
                     className="text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 font-medium"
                   >
                     Hamkorlik Dasturi
-                  </button>
+                  </button>)}
+
+                  {onOpenAdmin && (
+                    <button
+                      onClick={() => { onOpenAdmin(); setShowProfileMenu(false); }}
+                      className="text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 font-semibold text-rose-500 flex items-center gap-2"
+                    >
+                      <ShieldCheck className="size-3.5" />
+                      <span>Admin panel</span>
+                    </button>
+                  )}
 
                   <div className="pt-2 border-t border-gray-100 dark:border-white/10 mt-1">
                     <button
                       onClick={() => {
                         setShowProfileMenu(false);
                         onLogout?.();
-                        toast.info("Tizimdan muvaffaqiyatli chiqildi");
                       }}
                       className="w-full text-left px-3 py-2 rounded-lg hover:bg-rose-500/10 text-rose-500 font-bold flex items-center gap-2"
                     >
@@ -614,6 +638,42 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
         <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 border-r flex flex-col justify-between transition-all duration-200 select-none ${bgSidebar}`}>
           {/* Scrollable menu items */}
           <div className="p-3 overflow-y-auto space-y-1">
+            {serverMode ? (
+              <div className="space-y-0.5">
+                {([
+                  ['accounts', 'Hisoblar', LayoutGrid],
+                  ['performance', 'Natijalar', BarChart3],
+                  ['history', 'Bitimlar tarixi', History],
+                  ['deposit', 'Depozit', ArrowDownToLine],
+                  ['withdraw', 'Yechish', ArrowUpFromLine],
+                  ['tx_history', 'Amallar tarixi', Receipt],
+                  ['support_hub', "Qo'llab-quvvatlash", LifeBuoy],
+                  ['profile', 'Profil', UserRound],
+                ] as const).map(([id, label, Icon]) => (
+                  <button
+                    key={id}
+                    onClick={() => setCurrentNav(id)}
+                    title={label}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${sidebarCollapsed ? 'justify-center' : ''} ${
+                      currentNav === id ? 'bg-primary text-black font-bold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    {!sidebarCollapsed && <span>{label}</span>}
+                  </button>
+                ))}
+                <div className="pt-3 mt-3 border-t border-gray-100 dark:border-white/10">
+                  <button
+                    onClick={onOpenTrade}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold bg-gray-900 text-white dark:bg-white dark:text-black hover:opacity-90 ${sidebarCollapsed ? 'justify-center' : ''}`}
+                  >
+                    <TrendingUp className="size-4 shrink-0" />
+                    {!sidebarCollapsed && <span>Terminal</span>}
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <>
             {/* SECTION 1: TRADING */}
             <div>
               <button
@@ -888,11 +948,13 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 </div>
               )}
             </div>
+                      </>
+            )}
           </div>
 
           {/* Bottom Sidebar: Lavender Referral Banner + Collapse Button */}
           <div className="p-3 space-y-2 border-t border-gray-100 dark:border-white/5">
-            {!sidebarCollapsed && (
+            {!sidebarCollapsed && !serverMode && (
               <div 
                 onClick={() => setCurrentNav('referrals')}
                 className="cursor-pointer p-3 rounded-2xl bg-[#f4f0fd] hover:bg-[#ebe4fb] dark:bg-purple-950/40 dark:hover:bg-purple-950/60 transition-all border border-[#e5dcf9] dark:border-purple-800/40"
@@ -969,7 +1031,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               )}
 
               {/* TOP PROMO BANNER (Exora Prime all-in-one trading platform) */}
-              <div className="rounded-2xl border border-amber-300/40 dark:border-amber-500/20 bg-gradient-to-r from-amber-100/70 via-amber-50/40 to-white dark:from-amber-950/30 dark:via-black/20 dark:to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className={`${serverMode ? 'hidden ' : ''}rounded-2xl border border-amber-300/40 dark:border-amber-500/20 bg-gradient-to-r from-amber-100/70 via-amber-50/40 to-white dark:from-amber-950/30 dark:via-black/20 dark:to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs`}>
                 <div className="flex items-center gap-3.5">
                   <div className="w-11 h-11 rounded-2xl bg-[#ffde00] text-black flex items-center justify-center font-black shadow-sm shrink-0">
                     <TrendingUp className="size-5 text-black" />
@@ -997,7 +1059,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               {/* SECTION HEADER: My accounts */}
               <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                  My accounts
+                  {serverMode ? 'Mening hisoblarim' : 'My accounts'}
                 </h1>
 
                 {/* + Open account button */}
@@ -1006,7 +1068,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-bold text-gray-900 dark:text-white transition-all border border-gray-200 dark:border-white/10"
                 >
                   <Plus className="size-4" />
-                  <span>Open account</span>
+                  <span>{serverMode ? 'Hisob ochish' : 'Open account'}</span>
                 </button>
               </div>
 
@@ -1174,7 +1236,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                             </button>
                             <button
                               onClick={() => handleArchiveAccount(acc)}
-                              className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-gray-200 px-1 py-1 transition-colors cursor-pointer"
+                              className={`${serverMode ? 'hidden ' : ''}text-xs text-gray-400 hover:text-red-500 dark:hover:text-gray-200 px-1 py-1 transition-colors cursor-pointer`}
                               title="Archive account"
                             >
                               Archive
@@ -1188,7 +1250,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               </div>
 
               {/* ARCHIVED ACCOUNTS SECTION (Matching user's prompt & Screenshot 3) */}
-              <div className="pt-6 border-t border-gray-200 dark:border-white/10">
+              <div className={`${serverMode ? 'hidden ' : ''}pt-6 border-t border-gray-200 dark:border-white/10`}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                     Archived accounts
@@ -1266,7 +1328,8 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           )}
 
           {/* ======================= TAB 2: PERFORMANCE (EXNESS SUMMARY) ======================= */}
-          {currentNav === 'performance' && (
+          {serverMode && currentNav === 'performance' && <CabinetPerformance />}
+          {!serverMode && currentNav === 'performance' && (
             <div className="space-y-6">
               {/* Header & Range Selector */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1529,7 +1592,8 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           )}
 
           {/* ======================= TAB 3: HISTORY OF ORDERS ======================= */}
-          {currentNav === 'history' && (
+          {serverMode && currentNav === 'history' && <CabinetHistory />}
+          {!serverMode && currentNav === 'history' && (
             <div className="space-y-6">
               {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1735,7 +1799,11 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           )}
 
           {/* ======================= TAB 4: DEPOSIT ======================= */}
-          {currentNav === 'deposit' && (
+          {serverMode && currentNav === 'deposit' && <CabinetFunds mode="deposit" onOpenKyc={onOpenKyc} />}
+          {serverMode && currentNav === 'withdraw' && <CabinetFunds mode="withdraw" onOpenKyc={onOpenKyc} />}
+          {serverMode && currentNav === 'tx_history' && <CabinetStatement />}
+          {serverMode && currentNav === 'profile' && <CabinetProfile onOpenKyc={onOpenKyc} />}
+          {!serverMode && currentNav === 'deposit' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Deposit Funds</h1>
               
@@ -1842,7 +1910,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           )}
 
           {/* ======================= TAB 5: WITHDRAW ======================= */}
-          {currentNav === 'withdraw' && (
+          {!serverMode && currentNav === 'withdraw' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Withdraw Funds</h1>
               <div className={`max-w-xl p-6 rounded-2xl border ${bgCard} space-y-4`}>
@@ -2149,6 +2217,10 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
               </button>
             </p>
 
+            {serverMode ? (
+              <div className="pt-2 text-[11px]">&copy; {new Date().getFullYear()} Exora Prime. Demo platforma. Haqiqiy mablag' qabul qilinmaydi.</div>
+            ) : (
+            <>
             {/* 3. PCI DSS Security Compliance */}
             <div className="flex items-start sm:items-center gap-3 p-3.5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200/80 dark:border-white/10">
               <div className="px-2.5 py-1 rounded-md bg-[#ffde00] text-black font-black text-[11px] shrink-0">
@@ -2217,6 +2289,8 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                 </span>
               </div>
             </div>
+            </>
+            )}
           </footer>
         </div>
       </div>

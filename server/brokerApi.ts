@@ -99,6 +99,17 @@ function userPayload(id: string) {
   return { id: u.id, email: u.email, fullName: u.full_name, phone: u.phone, role: u.role, status: u.status, kycStatus: u.kyc_status, createdAt: u.created_at };
 }
 
+brokerRouter.post('/auth/password', requireAuth, rateLimit((r) => `pw:${r.user?.id}`, 6, 3600_000), (req, res) => {
+  const { current, next } = req.body ?? {};
+  if (typeof current !== 'string' || typeof next !== 'string') return bad(res, "Joriy va yangi parolni kiriting");
+  if (next.length < 8) return bad(res, "Yangi parol kamida 8 ta belgi bo'lsin");
+  const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user!.id) as any;
+  if (!row || !verifyPassword(current, row.password_hash)) return bad(res, "Joriy parol noto'g'ri", 403);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(next), req.user!.id);
+  audit(req.user!.id, 'password_change', undefined, ip(req));
+  res.json({ success: true });
+});
+
 brokerRouter.get('/auth/me', requireAuth, (req, res) => {
   res.json({ success: true, user: userPayload(req.user!.id), accounts: tradingEngine.accountsOf(req.user!.id).map(accountView) });
 });
@@ -241,6 +252,44 @@ brokerRouter.get('/trading/positions', requireAuth, (req, res) => {
   const closed = status === 'CLOSED' || status === 'ALL' ? tradingEngine.history(acc.id, Math.min(500, Number(req.query.limit) || 100), Number(req.query.offset) || 0) : [];
   const positions = [...open, ...pending, ...closed].map(orderView);
   res.json({ success: true, positions, count: positions.length, account: accountView(acc) });
+});
+
+// Aggregated performance for the cabinet (closed trades only; net = P/L - commission + swap).
+brokerRouter.get('/trading/stats', requireAuth, (req, res) => {
+  const acc = ownedAccount(req, req.query.accountId as string | undefined);
+  if (!acc) return bad(res, 'Account not found', 404);
+  const days = Math.min(3650, Math.max(1, Number(req.query.days) || 30));
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const rows = db.prepare("SELECT symbol, side, lots, pnl, commission, swap, closed_at FROM orders WHERE account_id = ? AND status IN ('closed','liquidated') AND closed_at >= ? ORDER BY closed_at").all(acc.id, since) as any[];
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  let profit = 0, loss = 0, cost = 0, lots = 0, wins = 0, losses = 0;
+  let best: number | null = null, worst: number | null = null;
+  const bySymbol = new Map<string, { symbol: string; trades: number; lots: number; net: number }>();
+  const daily = new Map<string, number>();
+  for (const o of rows) {
+    const net = o.pnl - o.commission + o.swap;
+    if (net >= 0) { profit += net; wins++; } else { loss += net; losses++; }
+    cost += o.commission - o.swap;
+    lots += o.lots;
+    best = best === null ? net : Math.max(best, net);
+    worst = worst === null ? net : Math.min(worst, net);
+    const sy = bySymbol.get(o.symbol) ?? { symbol: o.symbol, trades: 0, lots: 0, net: 0 };
+    sy.trades++; sy.lots += o.lots; sy.net += net;
+    bySymbol.set(o.symbol, sy);
+    const day = String(o.closed_at).slice(0, 10);
+    daily.set(day, (daily.get(day) ?? 0) + net);
+  }
+  res.json({
+    success: true, days, account: accountView(acc),
+    totals: {
+      netProfit: r2(profit + loss), grossProfit: r2(profit), grossLoss: r2(loss), tradingCost: r2(cost), trades: rows.length, wins, losses,
+      winRate: rows.length ? Math.round((wins / rows.length) * 1000) / 10 : 0, volumeLots: r2(lots),
+      profitFactor: loss < 0 ? r2(profit / -loss) : null, best: best === null ? null : r2(best), worst: worst === null ? null : r2(worst),
+      unrealised: r2(tradingEngine.openOrders(acc.id).reduce((s, o) => s + o.pnl, 0)),
+    },
+    bySymbol: [...bySymbol.values()].map((x) => ({ ...x, lots: r2(x.lots), net: r2(x.net) })).sort((a, b) => b.net - a.net),
+    daily: [...daily.entries()].map(([date, net]) => ({ date, net: r2(net) })),
+  });
 });
 
 brokerRouter.get('/trading/history', requireAuth, (req, res) => {

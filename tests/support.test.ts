@@ -12,6 +12,8 @@ const { hashPassword } = await import('../server/auth.js');
 const { brokerRouter } = await import('../server/brokerApi.js');
 const { tradingEngine } = await import('../server/tradingEngine.js');
 tradingEngine.start();
+const { marketData } = await import('../server/marketData.js');
+const price = (sym: string, mid: number) => marketData.pushPrice(sym, mid);
 
 test('support desk: tickets, operator console, roles, risk monitor', async () => {
   const app = express();
@@ -89,6 +91,22 @@ test('support desk: tickets, operator console, roles, risk monitor', async () =>
     const opLogin = await call('POST', '/auth/login', { email: 'op@x.io', password: 'longpassword1' });
     assert.equal(opLogin.body.user.role, 'support_admin');
     assert.ok((await call('GET', '/admin/staff', undefined, support)).body.staff.length >= 4);
+
+    // performance stats + password change
+    price('EURUSD', 1.1);
+    const accA = (await call('GET', '/accounts', undefined, a)).body.accounts.find((x: any) => x.isDemo);
+    const opened = await call('POST', '/trading/order/open', { accountId: accA.id, symbol: 'EURUSD', side: 'BUY', lots: 1 }, a);
+    price('EURUSD', 1.102);
+    await call('POST', '/trading/order/close', { positionId: opened.body.orderId }, a);
+    const st = await call('GET', `/trading/stats?accountId=${accA.id}&days=30`, undefined, a);
+    assert.equal(st.body.totals.trades, 1);
+    assert.equal(st.body.totals.wins, 1);
+    assert.ok(st.body.totals.netProfit > 150 && st.body.totals.netProfit < 200); // ~ (1.10195-1.10005)*100000
+    assert.equal(st.body.bySymbol[0].symbol, 'EURUSD');
+    assert.equal((await call('GET', `/trading/stats?accountId=${accA.id}`, undefined, b)).status, 404);
+    assert.equal((await call('POST', '/auth/password', { current: 'wrong', next: 'newpassword1' }, a)).status, 403);
+    assert.equal((await call('POST', '/auth/password', { current: 'password123', next: 'newpassword1' }, a)).status, 200);
+    assert.equal((await call('POST', '/auth/login', { email: 'a@c.io', password: 'newpassword1' })).status, 200);
 
     // client 360 + risk monitor
     const alice = (await call('GET', '/auth/me', undefined, a)).body.user.id;
