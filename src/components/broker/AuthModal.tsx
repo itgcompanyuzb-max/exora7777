@@ -126,7 +126,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
 
         <div className="flex items-center gap-2 text-primary font-bold text-xs mb-1">
           <ShieldCheck className="size-4" />
-          <span>Xavfsiz Kirish & 2FA</span>
+          <span>Xavfsiz kirish</span>
         </div>
 
         <h3 className="text-xl sm:text-2xl font-black text-white">
@@ -299,7 +299,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
                   type="submit"
                   className="mt-2 w-full rounded-xl bg-primary text-black py-3 text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all"
                 >
-                  Davom etish (2FA Tekshiruv)
+                  Kirish
                 </button>
               </>
             ) : (

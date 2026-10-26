@@ -266,6 +266,9 @@ function symbolsPayload(tier: Account['tier'] = 'Standard') {
   });
 }
 brokerRouter.get('/symbols', (_req, res) => res.json({ success: true, symbols: symbolsPayload(), feed: marketData.feedMode, testMode: TEST_MODE }));
+// Non-secret settings the sign-in screen needs.
+brokerRouter.get('/public-config', (_req, res) =>
+  res.json({ success: true, supportEmail: process.env.SUPPORT_EMAIL?.trim() || null, testMode: TEST_MODE }));
 brokerRouter.get('/market/status', (_req, res) => res.json({ success: true, testMode: TEST_MODE, ...marketData.status() }));
 brokerRouter.get('/rates/live', (_req, res) =>
   res.json({ success: true, timestamp: new Date().toISOString(), feed: marketData.feedMode, rates: symbolsPayload() }));

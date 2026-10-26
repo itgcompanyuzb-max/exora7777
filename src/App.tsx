@@ -11,6 +11,7 @@ import { EducationAndSupportView } from "./components/broker/EducationAndSupport
 import { AdminPortalView } from "./components/broker/AdminPortalView";
 import { MediaCenterView } from "./components/broker/MediaCenterView";
 import { AuthModal } from "./components/broker/AuthModal";
+import { AuthGate } from "./components/broker/AuthGate";
 import { MetaTraderTerminal } from "./components/MetaTraderTerminal";
 import { getToken } from "./lib/api";
 import { startServerSync, signOut } from "./lib/serverSync";
@@ -98,6 +99,23 @@ export default function App() {
       <div className="min-h-screen bg-[#0e110f] text-gray-400 flex items-center justify-center font-mono text-sm">
         Exora Prime — serverga ulanmoqda…
       </div>
+    );
+  }
+
+  // Signed-out visitors see a single sign-in / register screen and nothing else.
+  if (!isLoggedIn) {
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <AuthGate onRegister={() => handleOpenAuth('register')} onSignIn={() => handleOpenAuth('login')} />
+        <AuthModal
+          isOpen={authOpen}
+          onClose={() => setAuthOpen(false)}
+          onSuccess={handleAuthSuccess}
+          lang={lang}
+          initialMode={authInitialMode}
+        />
+      </>
     );
   }
 
