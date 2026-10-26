@@ -14,3 +14,9 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>
 );
 
+
+// Remember a referral link (?ref=CODE) until the visitor registers.
+try {
+  const ref = new URLSearchParams(location.search).get('ref');
+  if (ref) localStorage.setItem('exora_ref', ref.toUpperCase().slice(0, 16));
+} catch { /* storage unavailable */ }

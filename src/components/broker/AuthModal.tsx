@@ -36,7 +36,10 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('+998 ');
   const [password, setPassword] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+  const [referralCode, setReferralCode] = useState(() => {
+    // a ?ref=CODE link is remembered so the code survives the sign-in screen
+    try { return (new URLSearchParams(location.search).get('ref') || localStorage.getItem('exora_ref') || '').toUpperCase(); } catch { return ''; }
+  });
   const [otpCode, setOtpCode] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
 
@@ -86,7 +89,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
     }
     setBusy(true);
     try {
-      await apiRegister({ fullName, email, phone, password, otpId, otpCode });
+      await apiRegister({ fullName, email, phone, password, otpId, otpCode, referralCode: referralCode.trim() || undefined });
       if (!(await startServerSync())) throw new Error("Serverga ulanib bo'lmadi");
       toast.success("Ro'yxatdan muvaffaqiyatli o'tdingiz! $10,000 lik Demo hisob ochildi.");
       onSuccess?.();
@@ -233,9 +236,9 @@ export function AuthModal({ isOpen, onClose, onSuccess, lang, initialMode = 'reg
               <label className="text-[11px] text-muted-foreground block mb-1">Hamkorlik (Referral) Kodi (ixtiyoriy):</label>
               <input
                 type="text"
-                placeholder="EXORA-REF"
+                placeholder="Masalan: K7M2QXA"
                 value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value)}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-xs text-white outline-none"
               />
             </div>

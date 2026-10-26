@@ -49,7 +49,7 @@ export async function apiLogin(email: string, password: string) {
   return r.user;
 }
 
-export async function apiRegister(p: { email: string; password: string; fullName: string; phone?: string; otpId?: string; otpCode?: string }) {
+export async function apiRegister(p: { email: string; password: string; fullName: string; phone?: string; otpId?: string; otpCode?: string; referralCode?: string }) {
   const r = await apiFetch<{ token: string; user: any }>('/api/v1/auth/register', { method: 'POST', body: p });
   setToken(r.token);
   return r.user;

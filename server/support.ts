@@ -145,13 +145,13 @@ adminSupportRouter.get('/tickets-stats', supportRoles, (_req, res) => {
 });
 
 function clientCard(userId: string) {
-  const u = db.prepare('SELECT id,email,full_name,phone,status,kyc_status,created_at FROM users WHERE id = ?').get(userId) as any;
+  const u = db.prepare('SELECT id,email,full_name,phone,status,kyc_status,created_at,referral_code,referred_by FROM users WHERE id = ?').get(userId) as any;
   if (!u) return null;
   const accounts = tradingEngine.accountsOf(userId).map((a) => ({ id: a.id, number: a.accountNumber, tier: a.tier, isDemo: a.isDemo, balance: a.balance, equity: a.equity, margin: a.margin, marginLevel: a.marginLevel, leverage: a.leverage }));
   const ids = accounts.map((a) => a.id);
   const tx = ids.length ? db.prepare(`SELECT id,kind,amount,method,status,created_at FROM transactions WHERE account_id IN (${ids.map(() => '?').join(',')}) ORDER BY created_at DESC LIMIT 8`).all(...ids) : [];
   return {
-    user: { id: u.id, email: u.email, fullName: u.full_name, phone: u.phone, status: u.status, kycStatus: u.kyc_status, createdAt: u.created_at },
+    user: { id: u.id, email: u.email, fullName: u.full_name, phone: u.phone, status: u.status, kycStatus: u.kyc_status, createdAt: u.created_at, referralCode: u.referral_code, referredBy: u.referred_by ? ((db.prepare('SELECT full_name FROM users WHERE id = ?').get(u.referred_by) as any)?.full_name ?? null) : null, referredCount: (db.prepare('SELECT COUNT(*) n FROM users WHERE referred_by = ?').get(u.id) as any).n },
     accounts, transactions: tx, openPositions: ids.reduce((n, id) => n + tradingEngine.openOrders(id).length, 0),
     ticketCount: (db.prepare('SELECT COUNT(*) n FROM tickets WHERE user_id = ?').get(userId) as any).n,
   };

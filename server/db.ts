@@ -2,6 +2,7 @@
 // SQLite persistence layer (node:sqlite, no native build step required).
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 
 const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'data', 'exora.db');
@@ -149,6 +150,22 @@ CREATE TABLE IF NOT EXISTS candles (
 
 // Additive migrations for databases created by earlier versions.
 try { db.exec('ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0'); } catch { /* already present */ }
+
+try { db.exec('ALTER TABLE users ADD COLUMN referral_code TEXT'); } catch { /* already present */ }
+try { db.exec('ALTER TABLE users ADD COLUMN referred_by TEXT'); } catch { /* already present */ }
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_refcode ON users(referral_code)');
+
+const REF_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no look-alike characters
+export function newReferralCode(): string {
+  for (;;) {
+    const code = Array.from(crypto.randomBytes(7), (b) => REF_ALPHABET[b % REF_ALPHABET.length]).join('');
+    if (!db.prepare('SELECT 1 FROM users WHERE referral_code = ?').get(code)) return code;
+  }
+}
+// give existing users a code
+for (const u of db.prepare('SELECT id FROM users WHERE referral_code IS NULL').all() as any[]) {
+  db.prepare('UPDATE users SET referral_code = ? WHERE id = ?').run(newReferralCode(), u.id);
+}
 
 export function audit(actor: string | null, action: string, detail?: unknown, ip?: string) {
   db.prepare('INSERT INTO audit (actor, action, detail, ip, created_at) VALUES (?,?,?,?,?)').run(

@@ -2,7 +2,7 @@
 // Authenticated REST API for the broker platform (/api/v1).
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { db, audit } from './db.js';
+import { db, audit, newReferralCode } from './db.js';
 import { hashPassword, verifyPassword, signToken, requireAuth, requireRole, rateLimit } from './auth.js';
 import { tradingEngine, Account, Order, ENGINE_CONFIG } from './tradingEngine.js';
 import { marketData } from './marketData.js';
@@ -59,6 +59,7 @@ brokerRouter.post('/auth/otp/send', rateLimit((r) => `otp:${ip(r)}`, 10, 3600_00
 
 brokerRouter.post('/auth/register', rateLimit((r) => `reg:${ip(r)}`, 10, 3600_000), async (req, res) => {
   const { email, fullName, password, otpId, otpCode } = req.body ?? {};
+  const refCodeIn = String(req.body?.referralCode ?? '').trim().toUpperCase();
   if (typeof email !== 'string' || !EMAIL_RE.test(email)) return bad(res, 'Valid email is required');
   if (typeof fullName !== 'string' || fullName.trim().length < 2) return bad(res, 'Full name is required');
   if (typeof password !== 'string' || password.length < 8) return bad(res, 'Password must be at least 8 characters long');
@@ -72,9 +73,14 @@ brokerRouter.post('/auth/register', rateLimit((r) => `reg:${ip(r)}`, 10, 3600_00
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(e)) return bad(res, 'Email is already registered', 409);
   if (phone && db.prepare('SELECT 1 FROM users WHERE phone = ?').get(phone)) return bad(res, "Bu telefon raqami allaqachon ro'yxatdan o'tgan", 409);
 
+  let referrer: any = null;
+  if (refCodeIn) {
+    referrer = db.prepare("SELECT id FROM users WHERE referral_code = ? AND status = 'active'").get(refCodeIn);
+    if (!referrer) return bad(res, "Referal kodi topilmadi");
+  }
   const id = `usr_${crypto.randomUUID()}`;
-  db.prepare('INSERT INTO users (id,email,full_name,phone,phone_verified,password_hash,role,status,kyc_status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
-    .run(id, e, fullName.trim(), phone, otpRequired() ? 1 : 0, hashPassword(password), 'client', 'active', 'unsubmitted', new Date().toISOString());
+  db.prepare('INSERT INTO users (id,email,full_name,phone,phone_verified,password_hash,role,status,kyc_status,created_at,referral_code,referred_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(id, e, fullName.trim(), phone, otpRequired() ? 1 : 0, hashPassword(password), 'client', 'active', 'unsubmitted', new Date().toISOString(), newReferralCode(), referrer?.id ?? null);
   tradingEngine.createAccount(id, { isDemo: true });
   tradingEngine.createAccount(id, { isDemo: false });
   audit(id, 'register', { email: e, phoneVerified: otpRequired() }, ip(req));
@@ -108,6 +114,34 @@ brokerRouter.post('/auth/password', requireAuth, rateLimit((r) => `pw:${r.user?.
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(next), req.user!.id);
   audit(req.user!.id, 'password_change', undefined, ip(req));
   res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
+// Referral program: rewards are computed from the referred users' closed volume.
+// In test mode (virtual money only) they are shown as "accrued", nothing is paid out.
+// ---------------------------------------------------------------------------
+const REFERRAL_USD_PER_LOT = Number(process.env.REFERRAL_USD_PER_LOT || 3);
+brokerRouter.get('/referrals/me', requireAuth, (req, res) => {
+  const me = db.prepare('SELECT referral_code FROM users WHERE id = ?').get(req.user!.id) as any;
+  const invited = db.prepare('SELECT id, full_name, email, created_at FROM users WHERE referred_by = ? ORDER BY created_at DESC').all(req.user!.id) as any[];
+  const maskName = (n: string) => n.split(' ').map((p, i) => (i === 0 ? p : `${p[0]}.`)).join(' ');
+  const maskMail = (m: string) => m.replace(/^(.{2}).*(@.*)$/, '$1***$2');
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const rows = invited.map((u) => {
+    // test mode: only demo accounts exist, so they count; otherwise only real-money accounts do
+    const ids = tradingEngine.accountsOf(u.id).filter((a) => (TEST_MODE ? true : !a.isDemo)).map((a) => a.id);
+    let lots = 0, trades = 0;
+    if (ids.length) {
+      const agg = db.prepare(`SELECT COALESCE(SUM(lots),0) l, COUNT(*) n FROM orders WHERE account_id IN (${ids.map(() => '?').join(',')}) AND status IN ('closed','liquidated')`).get(...ids) as any;
+      lots = agg.l; trades = agg.n;
+    }
+    return { name: maskName(u.full_name), email: maskMail(u.email), joinedAt: u.created_at, trades, lots: r2(lots), earned: r2(lots * REFERRAL_USD_PER_LOT), active: trades > 0 };
+  });
+  res.json({
+    success: true, code: me.referral_code, ratePerLot: REFERRAL_USD_PER_LOT, testMode: TEST_MODE,
+    stats: { invited: rows.length, active: rows.filter((r) => r.active).length, lots: r2(rows.reduce((s, r) => s + r.lots, 0)), earned: r2(rows.reduce((s, r) => s + r.earned, 0)) },
+    referrals: rows,
+  });
 });
 
 brokerRouter.get('/auth/me', requireAuth, (req, res) => {

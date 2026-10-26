@@ -30,6 +30,8 @@ export function ClientDrawer({ userId, onClose }: { userId: string; onClose: () 
                 <span className="px-2 py-0.5 rounded-full bg-white/10">Holat: {d.user.status}</span>
                 <span className="px-2 py-0.5 rounded-full bg-white/10">KYC: {d.user.kycStatus}</span>
                 <span className="px-2 py-0.5 rounded-full bg-white/10">Ro'yxatdan: {ago(d.user.createdAt)}</span>
+                {d.user.referredBy && <span className="px-2 py-0.5 rounded-full bg-white/10">Taklif qilgan: {d.user.referredBy}</span>}
+                <span className="px-2 py-0.5 rounded-full bg-white/10">Referal: {d.user.referralCode} ({d.user.referredCount})</span>
               </div>
             </div>
 

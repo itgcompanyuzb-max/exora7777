@@ -57,7 +57,8 @@ import {
   ArrowUpFromLine,
   Receipt,
   LifeBuoy,
-  UserRound
+  UserRound,
+  Share2
 } from "lucide-react";
 import { toast } from "sonner";
 import { TradingViewChart } from "../trading/TradingViewChart";
@@ -67,6 +68,7 @@ import { CabinetHistory } from "../cabinet/CabinetHistory";
 import { CabinetStatement } from "../cabinet/CabinetStatement";
 import { CabinetFunds } from "../cabinet/CabinetFunds";
 import { CabinetProfile } from "../cabinet/CabinetProfile";
+import { CabinetReferrals } from "../cabinet/CabinetReferrals";
 
 interface ClientCabinetViewProps {
   lang: Language;
@@ -596,12 +598,12 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   >
                     Manzilni Tasdiqlash
                   </button>)}
-                  {!serverMode && (<button 
+                  <button 
                     onClick={() => { setCurrentNav('referrals'); setShowProfileMenu(false); }}
                     className="text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 font-medium"
                   >
                     Hamkorlik Dasturi
-                  </button>)}
+                  </button>
 
                   {onOpenAdmin && (
                     <button
@@ -647,6 +649,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                   ['deposit', 'Depozit', ArrowDownToLine],
                   ['withdraw', 'Yechish', ArrowUpFromLine],
                   ['tx_history', 'Amallar tarixi', Receipt],
+                  ['referrals', 'Referal dasturi', Share2],
                   ['support_hub', "Qo'llab-quvvatlash", LifeBuoy],
                   ['profile', 'Profil', UserRound],
                 ] as const).map(([id, label, Icon]) => (
@@ -1803,6 +1806,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           {serverMode && currentNav === 'withdraw' && <CabinetFunds mode="withdraw" onOpenKyc={onOpenKyc} />}
           {serverMode && currentNav === 'tx_history' && <CabinetStatement />}
           {serverMode && currentNav === 'profile' && <CabinetProfile onOpenKyc={onOpenKyc} />}
+          {serverMode && currentNav === 'referrals' && <CabinetReferrals />}
           {!serverMode && currentNav === 'deposit' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Deposit Funds</h1>
@@ -2062,7 +2066,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           )}
 
           {/* ======================= TAB 7: REFERRALS ======================= */}
-          {currentNav === 'referrals' && (
+          {!serverMode && currentNav === 'referrals' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Partner Partnership & Rebates</h1>
               <div className={`p-6 rounded-2xl border ${bgCard} space-y-4`}>
