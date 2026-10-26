@@ -473,7 +473,7 @@ export function WebTraderView({ lang, onOpenDeposit, onReturnToCabinet, onSwitch
                   className={`px-1.5 py-0.5 rounded border ${live ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/10 text-rose-300 border-rose-500/30'}`}
                   title={`Narx manbai: ${f.mode} · jonli: ${f.liveCount}/${f.total}`}
                 >
-                  {f.mode === 'simulated' ? 'SIMULYATSIYA' : live ? `LIVE ${f.liveCount}/${f.total}` : 'NARX YO\'Q'}
+                  {f.mode === 'simulated' ? 'SIMULYATSIYA' : live ? `LIVE ${f.liveCount}/${f.total}${f.delayedCount ? ` · ${f.delayedCount} kechikkan` : ''}` : 'NARX YO\'Q'}
                 </span>
               </div>
             );

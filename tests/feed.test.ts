@@ -12,8 +12,17 @@ import { WebSocketServer } from 'ws';
 const nowSec = () => Math.floor(Date.now() / 1000);
 const PRICES: Record<string, number> = { 'EURUSD=X': 1.085, 'GC=F': 2650.4, 'GBPUSD=X': 1.27, 'AUDUSD=X': 0.66, 'NZDUSD=X': 0.6, USDCHF: 0.88, 'USDCAD=X': 1.39, 'SI=F': 31.2, 'CL=F': 71.1, '^DJI': 43800 };
 
+const SQ: Record<string, number> = { 'EUR/USD': 1.085, 'GBP/USD': 1.27, 'AUD/USD': 0.66, 'NZD/USD': 0.6, 'USD/JPY': 154.6, 'USD/CHF': 0.88, 'USD/CAD': 1.39, 'XAU/USD': 2650.4, 'XAG/USD': 31.2 };
 const yahoo = http.createServer((req, res) => {
   const url = new URL(req.url!, 'http://x');
+  if (url.pathname.startsWith('/public-quotes/bboquotes/instrument/')) {
+    const pair = url.pathname.split('/').slice(-2).join('/');
+    const mid = SQ[pair] ?? 1;
+    // USD/JPY is deliberately stale (provider timestamp 1 h old) -> must not be tradable
+    const ts = pair === 'USD/JPY' ? Date.now() - 3600000 : Date.now();
+    res.setHeader('content-type', 'application/json');
+    return res.end(JSON.stringify([{ topo: { platform: 'MT5' }, spreadProfilePrices: [{ spreadProfile: 'standard', bid: mid - mid * 0.00005, ask: mid + mid * 0.00005 }, { spreadProfile: 'prime', bid: mid - 0.0001, ask: mid + 0.0001 }], ts }]));
+  }
   const sym = decodeURIComponent(url.pathname.split('/').pop()!);
   res.setHeader('content-type', 'application/json');
   if (url.searchParams.get('range') === '2d') {
@@ -48,7 +57,9 @@ await new Promise<void>((r) => binanceRest.listen(0, r));
 process.env.YAHOO_BASE_URL = `http://127.0.0.1:${(yahoo.address() as any).port}`;
 process.env.BINANCE_REST_URL = `http://127.0.0.1:${(binanceRest.address() as any).port}`;
 process.env.BINANCE_WS_URL = `ws://127.0.0.1:${(binanceWs.address() as any).port}`;
-process.env.YAHOO_POLL_MS = '500';
+process.env.YAHOO_POLL_MS = '1000';
+process.env.SWISSQUOTE_BASE_URL = process.env.YAHOO_BASE_URL;
+process.env.SWISSQUOTE_POLL_MS = '500';
 
 const { db } = await import('../server/db.js');
 const { marketData } = await import('../server/marketData.js');
@@ -59,7 +70,7 @@ marketData.start();
 await new Promise((r) => setTimeout(r, 4000));
 
 test('feed mode and instrument set reflect real sources', () => {
-  assert.match(marketData.feedMode, /^live:(binance\+yahoo|yahoo\+binance)$/);
+  for (const src of ['binance', 'swissquote', 'yahoo']) assert.ok(marketData.feedMode.includes(src), src);
   assert.ok(!marketData.simulated);
   const names = marketData.activeSpecs().map((s) => s.symbol);
   for (const s of ['EURUSD', 'XAUUSD', 'USOIL', 'US30', 'BTCUSD', 'SOLUSD']) assert.ok(names.includes(s), s);
@@ -68,9 +79,12 @@ test('feed mode and instrument set reflect real sources', () => {
 test('live prices flow in from Yahoo (forex/gold) and Binance (crypto)', () => {
   assert.equal(marketData.mid('EURUSD'), 1.085);
   assert.equal(marketData.mid('XAUUSD'), 2650.4);
+  assert.equal(marketData.mid('USOIL'), 71.1);
   assert.equal(marketData.mid('BTCUSD'), 84000.2);
   assert.ok(marketData.isLive('XAUUSD') && marketData.isLive('BTCUSD'));
-  assert.equal(marketData.sourceOf('XAUUSD'), 'yahoo');
+  assert.equal(marketData.sourceOf('XAUUSD'), 'swissquote');
+  assert.equal(marketData.sourceOf('EURUSD'), 'swissquote');
+  assert.equal(marketData.sourceOf('USOIL'), 'yahoo');
   assert.equal(marketData.sourceOf('BTCUSD'), 'binance');
 });
 

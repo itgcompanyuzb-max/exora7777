@@ -24,6 +24,7 @@ const server = http.createServer((req, res) => {
 await new Promise<void>((r) => server.listen(0, r));
 process.env.YAHOO_BASE_URL = `http://127.0.0.1:${(server.address() as any).port}`;
 process.env.YAHOO_POLL_MS = '1000';
+process.env.SWISSQUOTE_BASE_URL = 'http://127.0.0.1:1'; // unreachable: FX/metals fail, oil/index still served by Yahoo
 process.env.BINANCE_REST_URL = process.env.YAHOO_BASE_URL;
 process.env.BINANCE_WS_URL = 'ws://127.0.0.1:1'; // unreachable on purpose
 
@@ -33,7 +34,8 @@ await new Promise((r) => setTimeout(r, 2500));
 
 test('one batch request refreshes every Yahoo symbol', () => {
   assert.ok(sparkCalls >= 2, `spark calls: ${sparkCalls}`);
-  for (const s of ['EURUSD', 'XAUUSD', 'USOIL', 'US30']) assert.ok(marketData.isLive(s), s);
+  for (const s of ['USOIL', 'US30']) assert.ok(marketData.isLive(s), s);
+  assert.ok(!marketData.isLive('EURUSD')); // provider down -> never pretends to be live
   assert.ok(marketData.status().health.yahoo.ok >= 2);
   assert.equal(marketData.status().health.yahoo.lastError, null);
 });

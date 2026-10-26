@@ -36,7 +36,8 @@ class MarketData {
   private dirty = new Set<string>();
   private tickListeners: Array<(q: Quote) => void> = [];
   public feedMode = 'simulated'; // 'simulated' | 'live:binance' | 'live:binance+finnhub' ...
-  private sources = new Map<string, 'binance' | 'finnhub' | 'yahoo'>();
+  private sources = new Map<string, 'binance' | 'finnhub' | 'swissquote' | 'yahoo'>();
+  private quoteTime = new Map<string, number>(); // provider timestamp (ms) of the latest accepted quote
   private liveMaxAgeMs = Number(process.env.LIVE_MAX_AGE_MS || 30000);
 
   constructor() {
@@ -224,6 +225,13 @@ class MarketData {
     return Date.now() - (this.lastLive.get(symbol) ?? 0) < this.liveMaxAgeMs;
   }
 
+  /** Accepted but older than 90 s at the provider (e.g. delayed futures quotes). */
+  isDelayed(symbol: string): boolean {
+    if (this.simulated || !this.isLive(symbol)) return false;
+    const q = this.quoteTime.get(symbol);
+    return q !== undefined && Date.now() - q > 90000;
+  }
+
   sourceOf(symbol: string): string {
     return this.simulated ? 'simulated' : this.sources.get(symbol) ?? 'none';
   }
@@ -233,7 +241,7 @@ class MarketData {
       mode: this.feedMode,
       health: this.health,
       symbols: this.activeSpecs().map((s) => ({
-        symbol: s.symbol, source: this.sourceOf(s.symbol), live: this.isLive(s.symbol),
+        symbol: s.symbol, source: this.sourceOf(s.symbol), live: this.isLive(s.symbol), delayed: this.isDelayed(s.symbol),
         ageMs: this.lastLive.has(s.symbol) ? Date.now() - this.lastLive.get(s.symbol)! : null,
       })),
     };
@@ -246,14 +254,15 @@ class MarketData {
       for (const s of SYMBOL_SPECS) {
         if (s.binance) this.sources.set(s.symbol, 'binance');
         else if (s.finnhub && finnhubKey) this.sources.set(s.symbol, 'finnhub');
+        else if (s.swissquote) this.sources.set(s.symbol, 'swissquote');
         else if (s.yahoo) this.sources.set(s.symbol, 'yahoo');
       }
     }
     const used = new Set(this.sources.values());
     this.feedMode = this.simulated ? 'simulated' : `live:${[...used].join('+')}`;
     console.log(`[market] feed mode: ${this.feedMode} (${this.simulated ? SYMBOL_SPECS.length : this.sources.size} instruments)`);
-    if (!this.simulated && !finnhubKey && used.has('yahoo')) {
-      console.log('[market] Forex/metals/oil/indices use Yahoo Finance polling (key-less, near real-time). Set FINNHUB_API_KEY for a streaming feed.');
+    if (!this.simulated && !finnhubKey) {
+      console.log('[market] Forex/metals: Swissquote public bid/ask feed. Oil/US30: Yahoo Finance (may be delayed). Set FINNHUB_API_KEY for a streaming feed.');
     }
 
     if (this.simulated) {
@@ -265,6 +274,7 @@ class MarketData {
       this.backfillYahooHistory().catch((e) => console.warn('[market] Yahoo history backfill failed:', e.message));
       if (used.has('binance')) this.connectBinance();
       if (used.has('finnhub')) this.connectFinnhub();
+      if (used.has('swissquote')) this.pollSwissquote();
       if (used.has('yahoo')) this.pollYahoo();
     }
     setInterval(() => this.flush(), 5000).unref();
@@ -323,7 +333,7 @@ class MarketData {
   /** Real 1-minute history for Yahoo-sourced symbols (last ~2 days). */
   private async backfillYahooHistory() {
     for (const [symbol, src] of this.sources) {
-      if (src !== 'yahoo') continue;
+      if (src === 'binance' || !SPEC_BY_SYMBOL.get(symbol)!.yahoo) continue;
       const spec = SPEC_BY_SYMBOL.get(symbol)!;
       const res = await fetch(this.yahooUrl(symbol, 'interval=1m&range=2d'), { headers: MarketData.YAHOO_HEADERS });
       if (!res.ok) { console.warn(`[market] Yahoo history ${symbol}: HTTP ${res.status}`); continue; }
@@ -365,8 +375,12 @@ class MarketData {
   private applyYahooMeta(symbol: string, meta: any) {
     const price = Number(meta?.regularMarketPrice);
     const t = Number(meta?.regularMarketTime);
-    // quotes older than 5 minutes are stale (market closed / provider lag) and never treated as live
-    if (Number.isFinite(price) && (!t || Date.now() / 1000 - t < 300)) this.pushPrice(symbol, price, true);
+    // Yahoo CME futures (oil) are ~10 min delayed: accept up to 20 min in test mode and flag them as delayed.
+    const maxAge = (process.env.TEST_MODE || 'on') !== 'off' ? 1200 : 300;
+    if (Number.isFinite(price) && (!t || Date.now() / 1000 - t < maxAge)) {
+      this.quoteTime.set(symbol, t ? t * 1000 : Date.now());
+      this.pushPrice(symbol, price, true);
+    }
   }
 
   /**
@@ -430,6 +444,46 @@ class MarketData {
       }
     };
     loop();
+  }
+
+  /** Swissquote public bid/ask quotes (FX + metals): a few requests in parallel, each symbol every SWISSQUOTE_POLL_MS. */
+  private pollSwissquote() {
+    const base = (process.env.SWISSQUOTE_BASE_URL || 'https://forex-data-feed.swissquote.com').replace(/\/$/, '');
+    const interval = Math.max(500, Number(process.env.SWISSQUOTE_POLL_MS || 2000));
+    const list = [...this.sources].filter(([, src]) => src === 'swissquote').map(([sym]) => sym);
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    list.forEach((symbol, idx) => {
+      const spec = SPEC_BY_SYMBOL.get(symbol)!;
+      let backoff = 0;
+      const run = async () => {
+        await sleep((idx * interval) / list.length); // stagger so requests spread over the interval
+        for (;;) {
+          try {
+            const res = await fetch(`${base}/public-quotes/bboquotes/instrument/${spec.swissquote}`, { headers: MarketData.YAHOO_HEADERS, signal: AbortSignal.timeout(5000) });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = (await res.json()) as any[];
+            const entry = Array.isArray(data) ? data[0] : data;
+            const profiles: any[] = entry?.spreadProfilePrices ?? [];
+            const p = profiles.find((x) => String(x.spreadProfile).toLowerCase() === 'prime') ?? profiles[0] ?? entry;
+            const bid = Number(p?.bid);
+            const ask = Number(p?.ask);
+            const ts = Number(entry?.ts) || Date.now();
+            if (Number.isFinite(bid) && Number.isFinite(ask) && bid > 0 && Date.now() - ts < 120000) {
+              this.quoteTime.set(symbol, ts);
+              this.pushPrice(symbol, (bid + ask) / 2, true);
+            }
+            this.noteResult('swissquote');
+            backoff = 0;
+            await sleep(interval);
+          } catch (e: any) {
+            this.noteResult('swissquote', e.message);
+            backoff = Math.min(30000, (backoff || 1000) * 2);
+            await sleep(backoff);
+          }
+        }
+      };
+      run();
+    });
   }
 
   private reconnect(fn: () => void, attempt: number) {

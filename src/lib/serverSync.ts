@@ -9,7 +9,7 @@ import type {
 
 interface ServerSymbol {
   symbol: string; display: string; name: string; assetClass: string; pipSize: number; digits: number; contractSize: number;
-  minLot: number; lotStep: number; maxLot: number; stopLevel: number; usdBase: boolean; maxLeverage: number; open: boolean; live: boolean; source: string;
+  minLot: number; lotStep: number; maxLot: number; stopLevel: number; usdBase: boolean; maxLeverage: number; open: boolean; live: boolean; delayed?: boolean; source: string;
   bid: number; ask: number; changePct: number; high: number; low: number;
 }
 type ServerOrder = Record<string, any>;
@@ -243,7 +243,7 @@ class ServerBridge implements TradeBridge {
       auditLogs: this.adminAudit,
       kycList: [], // KYC document intake is not implemented server-side yet
       symbols: rates,
-      feed: { mode: this.feedMode, testMode: this.testMode, liveCount: [...this.symbols.values()].filter((x) => x.live).length, total: this.symbols.size },
+      feed: { mode: this.feedMode, testMode: this.testMode, liveCount: [...this.symbols.values()].filter((x) => x.live).length, delayedCount: [...this.symbols.values()].filter((x) => x.live && x.delayed).length, total: this.symbols.size },
     });
   }
 

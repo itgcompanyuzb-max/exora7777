@@ -623,7 +623,7 @@ export interface TradeBridge {
 
 class BrokerStoreManager {
   private bridge: TradeBridge | null = null;
-  private feedInfo: { mode: string; testMode: boolean; liveCount: number; total: number } | null = null;
+  private feedInfo: { mode: string; testMode: boolean; liveCount: number; delayedCount?: number; total: number } | null = null;
   private users: BrokerUser[] = getStored('users', DEFAULT_USERS);
   private accounts: TradingAccount[] = getStored('accounts', DEFAULT_ACCOUNTS);
   private positions: Position[] = getStored('positions', DEFAULT_POSITIONS);
@@ -722,7 +722,7 @@ class BrokerStoreManager {
   isServerMode(): boolean {
     return this.bridge !== null;
   }
-  setServerState(state: Partial<{ activeUser: BrokerUser; users: BrokerUser[]; accounts: TradingAccount[]; positions: Position[]; pendingOrders: PendingOrder[]; transactions: Transaction[]; symbols: ForexSymbolRate[]; auditLogs: AuditLogItem[]; kycList: KycRecord[]; feed: { mode: string; testMode: boolean; liveCount: number; total: number } }>): void {
+  setServerState(state: Partial<{ activeUser: BrokerUser; users: BrokerUser[]; accounts: TradingAccount[]; positions: Position[]; pendingOrders: PendingOrder[]; transactions: Transaction[]; symbols: ForexSymbolRate[]; auditLogs: AuditLogItem[]; kycList: KycRecord[]; feed: { mode: string; testMode: boolean; liveCount: number; delayedCount?: number; total: number } }>): void {
     if (state.activeUser) { this.activeUser = state.activeUser; this.users = [state.activeUser]; }
     if (state.users) this.users = state.users;
     if (state.accounts) this.accounts = state.accounts;

@@ -233,7 +233,7 @@ function symbolsPayload(tier: Account['tier'] = 'Standard') {
     const q = marketData.quote(s.symbol, tier)!;
     const d = marketData.dayStats(s.symbol);
     return {
-      symbol: s.symbol, display: displayName(s), name: s.name, assetClass: s.assetClass, open: isMarketOpen(s), live: marketData.isLive(s.symbol), source: marketData.sourceOf(s.symbol), high: d.high, low: d.low, contractSize: s.contractSize, digits: s.digits, pipSize: s.pipSize,
+      symbol: s.symbol, display: displayName(s), name: s.name, assetClass: s.assetClass, open: isMarketOpen(s), live: marketData.isLive(s.symbol), delayed: marketData.isDelayed(s.symbol), source: marketData.sourceOf(s.symbol), high: d.high, low: d.low, contractSize: s.contractSize, digits: s.digits, pipSize: s.pipSize,
       minLot: s.minLot, maxLot: s.maxLot, lotStep: s.lotStep, stopLevel: s.stopLevel, usdBase: s.usdBase, maxLeverage: s.maxLeverage,
       bid: q.bid, ask: q.ask, spread: Number((q.ask - q.bid).toFixed(s.digits)), change: d.change, changePct: d.changePct,
     };
