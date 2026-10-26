@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TradingViewChart } from "../trading/TradingViewChart";
+import { SupportCenter } from "../support/SupportCenter";
 
 interface ClientCabinetViewProps {
   lang: Language;
@@ -305,6 +306,11 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
   // Theme styling helpers
   const isDark = cabinetTheme === 'dark';
+  // With the live backend, "help" opens the real ticket center instead of the scripted chat bot.
+  function openSupport() {
+    if (brokerStore.isServerMode()) setCurrentNav('support_hub');
+    else setShowSupportModal(true);
+  }
 
   // `dark:` utilities follow the <html> class, so keep it in sync with the cabinet theme toggle.
   useEffect(() => {
@@ -498,7 +504,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
           {/* 4. Help & Support Icon (?) */}
           <button
-            onClick={() => setShowSupportModal(true)}
+            onClick={() => openSupport()}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all"
             title="Yordam markazi & Live Chat"
           >
@@ -2017,6 +2023,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           {currentNav === 'support_hub' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Support Hub & Help Center</h1>
+              {brokerStore.isServerMode() && <SupportCenter />}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className={`p-5 rounded-2xl border ${bgCard} space-y-2`}>
                   <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 flex items-center justify-center text-[#d97706]">
@@ -2045,7 +2052,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                     Our multilingual support desk is always online to resolve payment issues, verification requests, or technical MT5 questions.
                   </p>
                   <button
-                    onClick={() => setShowSupportModal(true)}
+                    onClick={() => openSupport()}
                     className="text-xs font-bold text-primary hover:underline block pt-1"
                   >
                     Open Live Chat &rarr;
@@ -2232,7 +2239,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
 
       {/* 4. FLOATING 24/7 LIVE CHAT BUTTON */}
       <button
-        onClick={() => setShowSupportModal(true)}
+        onClick={() => openSupport()}
         className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-[#ffde00] hover:bg-[#f2d200] text-black shadow-2xl flex items-center justify-center hover:scale-105 transition-all"
         title="Exora Live Chat"
       >
@@ -2774,7 +2781,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
                     <span className="text-primary font-bold">&rarr;</span>
                   </button>
                   <button
-                    onClick={() => { setShowSupportModal(true); setShowSearchModal(false); }}
+                    onClick={() => { openSupport(); setShowSearchModal(false); }}
                     className="w-full text-left p-2 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-between"
                   >
                     <span className="font-medium text-gray-800 dark:text-gray-200">Qo'llab-quvvatlash xizmati (24/7 Live Support)</span>

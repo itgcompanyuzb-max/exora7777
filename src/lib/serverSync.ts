@@ -149,6 +149,12 @@ class ServerBridge implements TradeBridge {
         this.applyOrder(m.data);
         this.notifyEvent(m.event, m.data);
         break;
+      case 'TICKET_UPDATE':
+      case 'TICKET_STAFF':
+        window.dispatchEvent(new CustomEvent('exora-ticket', { detail: m }));
+        if (m.type === 'TICKET_UPDATE' && m.event === 'agent_reply') toast.info("Qo'llab-quvvatlashdan yangi javob keldi");
+        if (m.type === 'TICKET_STAFF' && (m.event === 'created' || m.event === 'client_reply')) toast.info(m.event === 'created' ? 'Yangi tiket' : 'Mijoz tiketga javob berdi');
+        break;
       case 'ALERT':
         if (m.data.type === 'margin_call') toast.warning(`Margin Call! Marja darajasi ${m.data.marginLevel}%`);
         if (m.data.type === 'stop_out') toast.error(`Stop Out! Pozitsiya avtomatik yopildi (marja ${m.data.marginLevel}%)`);

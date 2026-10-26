@@ -66,3 +66,16 @@ Configuration is documented in `.env.example` (`JWT_SECRET`, `ADMIN_EMAIL/ADMIN_
 
 ## Deploy
 Docker image (`Dockerfile`) or Render Blueprint (`render.yaml`). Required env: `JWT_SECRET`, `ADMIN_PASSWORD`; mount a persistent volume at `/data` (SQLite). Health check: `/api/health`.
+
+## Back office & support desk
+Admin portal (staff roles: `super_admin`, `support_admin`, `finance_admin`, `compliance_admin`):
+* **Support (Tiketlar)** — queue with filters, SLA stats, threaded replies, internal notes, status/priority/assignment, client card.
+* **Risk monitor** — exposure per instrument, margin-call watch, top winners/losers, broker (B-book) result.
+* **Xodimlar** — create operators and assign roles (super admin only).
+* **Client 360°** — profile, accounts, positions, payments, tickets and activity in one drawer.
+Clients open and follow tickets in *Support hub*; replies arrive live over WebSocket.
+
+`npm run seed:demo` fills a running server with sample operators, clients, tickets and trades for presentations.
+
+## White-label
+Set `BRAND_NAME` (and optionally `BRAND_SHORT`, `BRAND_INITIALS`) in `.env` to rename the whole UI without code changes.

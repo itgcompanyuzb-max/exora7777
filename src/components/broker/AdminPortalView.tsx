@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { brokerStore } from "../../lib/brokerStore";
+import { AdminSupportDesk } from "../support/AdminSupportDesk";
+import { AdminRiskMonitor } from "../support/AdminRiskMonitor";
+import { AdminStaff } from "../support/AdminStaff";
+import { ClientDrawer } from "../support/ClientDrawer";
 import { translations, Language } from "../../lib/i18n";
 import { BrokerUser, KycRecord, Transaction, AuditLogItem, ForexSymbolRate, UserRole } from "../../types/broker";
 import { 
@@ -35,7 +39,8 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(brokerStore.getAuditLogs());
   const [symbols, setSymbols] = useState<ForexSymbolRate[]>(brokerStore.getSymbols());
 
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'kyc' | 'finance' | 'settings' | 'audit'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'kyc' | 'finance' | 'settings' | 'audit' | 'support' | 'risk' | 'staff'>('dashboard');
+  const [clientCard, setClientCard] = useState<string | null>(null);
 
   // Search & Filter state
   const [searchUser, setSearchUser] = useState('');
@@ -221,6 +226,39 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
           </button>
         )}
 
+        {brokerStore.isServerMode() && isSupport && (
+          <button
+            onClick={() => setAdminTab('support')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              adminTab === 'support' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
+            }`}
+          >
+            <span>🎧 Support (Tiketlar)</span>
+          </button>
+        )}
+
+        {brokerStore.isServerMode() && (
+          <button
+            onClick={() => setAdminTab('risk')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              adminTab === 'risk' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
+            }`}
+          >
+            <span>📊 Risk monitor</span>
+          </button>
+        )}
+
+        {brokerStore.isServerMode() && isSupport && (
+          <button
+            onClick={() => setAdminTab('staff')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              adminTab === 'staff' ? 'bg-primary text-black' : 'text-muted-foreground hover:text-white'
+            }`}
+          >
+            <span>👥 Xodimlar</span>
+          </button>
+        )}
+
         <button
           onClick={() => setAdminTab('audit')}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
@@ -233,6 +271,11 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
       </div>
 
       {/* 3. TAB CONTENT MODULES */}
+
+      {adminTab === 'support' && <AdminSupportDesk meId={currentUser.id} />}
+      {adminTab === 'risk' && <AdminRiskMonitor />}
+      {adminTab === 'staff' && <AdminStaff canManage={isSuperAdmin} meId={currentUser.id} />}
+      {clientCard && <ClientDrawer userId={clientCard} onClose={() => setClientCard(null)} />}
 
       {/* DASHBOARD TAB */}
       {adminTab === 'dashboard' && (
@@ -374,6 +417,9 @@ export function AdminPortalView({ lang }: AdminPortalViewProps) {
                       </span>
                     </td>
                     <td className="py-3 text-right">
+                      {brokerStore.isServerMode() && (
+                        <button onClick={() => setClientCard(u.id)} className="px-3 py-1 mr-2 rounded-lg text-[11px] font-bold bg-primary/15 text-primary hover:bg-primary/25">360°</button>
+                      )}
                       <button
                         onClick={() => handleToggleUserStatus(u.id)}
                         className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
