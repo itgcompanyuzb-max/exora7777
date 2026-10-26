@@ -91,6 +91,30 @@ CREATE TABLE IF NOT EXISTS audit (
   ip TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tickets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  subject TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'other',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  status TEXT NOT NULL DEFAULT 'open',
+  assignee_id TEXT REFERENCES users(id),
+  first_response_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status, updated_at);
+CREATE TABLE IF NOT EXISTS ticket_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id INTEGER NOT NULL REFERENCES tickets(id),
+  sender_id TEXT NOT NULL,
+  sender_role TEXT NOT NULL,
+  body TEXT NOT NULL,
+  internal INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_msgs ON ticket_messages(ticket_id);
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

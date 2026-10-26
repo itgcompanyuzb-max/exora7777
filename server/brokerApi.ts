@@ -6,6 +6,7 @@ import { db, audit } from './db.js';
 import { hashPassword, verifyPassword, signToken, requireAuth, requireRole, rateLimit } from './auth.js';
 import { tradingEngine, Account, Order, ENGINE_CONFIG } from './tradingEngine.js';
 import { marketData } from './marketData.js';
+import { clientSupportRouter, adminSupportRouter } from './support.js';
 import { SPEC_BY_SYMBOL, SYMBOL_SPECS, normalizeSymbol, displayName, isMarketOpen } from './symbols.js';
 
 export const brokerRouter = Router();
@@ -336,4 +337,12 @@ admin.get('/positions', (_req, res) => res.json({ success: true, positions: trad
 admin.get('/audit', requireRole('super_admin', 'compliance_admin'), (_req, res) =>
   res.json({ success: true, audit: db.prepare('SELECT a.*, u.email AS actor_email, u.role AS actor_role FROM audit a LEFT JOIN users u ON u.id = a.actor ORDER BY a.id DESC LIMIT 500').all() }));
 
+admin.use(adminSupportRouter);
+brokerRouter.use('/support', clientSupportRouter);
 brokerRouter.use('/admin', admin);
+
+// JSON error handler so API failures never leak an HTML stack page.
+brokerRouter.use((err: any, _req: Request, res: Response, _next: () => void) => {
+  console.error('[api] unhandled error:', err);
+  res.status(500).json({ success: false, error: 'Internal server error' });
+});

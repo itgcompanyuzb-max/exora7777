@@ -7,6 +7,7 @@ import { marketData, Quote } from './marketData.js';
 import { userFromToken, AuthedUser } from './auth.js';
 import { SYMBOL_SPECS } from './symbols.js';
 import { orderView, accountView } from './brokerApi.js';
+import { bus } from './bus.js';
 
 interface Client {
   ws: WebSocket;
@@ -62,6 +63,15 @@ export function initTradingWebSocket(server: HttpServer) {
   tradingEngine.on('order', ({ order, event }: { order: Order; event: string }) => toOwners(order.accountId, { type: 'ORDER_EVENT', event, data: orderView(order) }));
   tradingEngine.on('pnl', (o: Order) => toOwners(o.accountId, { type: 'POSITION_UPDATE', data: orderView(o) }));
   tradingEngine.on('alert', (a: { accountId: string }) => toOwners(a.accountId, { type: 'ALERT', data: a }));
+
+  // Support desk push: owner sees replies, staff see new / changed tickets.
+  bus.on('ticket', (e: { ticketId: number; userId: string; event: string }) => {
+    for (const c of clients) {
+      if (!c.user) continue;
+      if (c.user.id === e.userId) send(c, { type: 'TICKET_UPDATE', ticketId: e.ticketId, event: e.event });
+      else if (c.user.role !== 'client') send(c, { type: 'TICKET_STAFF', ticketId: e.ticketId, event: e.event });
+    }
+  });
 
   console.log('[ws] trading gateway mounted at /ws/trading');
 }
