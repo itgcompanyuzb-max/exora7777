@@ -160,11 +160,17 @@ export class ExnessBrokerAdapter {
     tpLine?: IOrderLineAdapter;
   }> = new Map();
   private _chart: any = null; // TradingView active chart reference
+  private _editHandler: ((positionId: string) => void) | null = null;
 
   constructor(host?: IBrokerConnectionAdapterHost) {
     if (host) {
       this._host = host;
     }
+  }
+
+  /** The UI registers a callback that opens its SL/TP editor when the user clicks a position line. */
+  public setEditHandler(fn: ((positionId: string) => void) | null) {
+    this._editHandler = fn;
   }
 
   /**
@@ -518,8 +524,7 @@ export class ExnessBrokerAdapter {
         this.closePosition(position.id);
       })
       .onModify(() => {
-        const input = prompt(`SL yoki TP ni o‘zgartirish [${position.symbol}]:`, `SL: ${position.stopLoss || ''}, TP: ${position.takeProfit || ''}`);
-        // Modify dialog hook
+        this._editHandler?.(position.id);
       });
 
     this._chartLines.set(position.id, { positionLine: posLine });

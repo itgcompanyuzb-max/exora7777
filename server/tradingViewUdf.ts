@@ -3,6 +3,7 @@
 import express from 'express';
 import { marketData } from './marketData.js';
 import { SPEC_BY_SYMBOL, normalizeSymbol, SymbolSpec } from './symbols.js';
+import { symbolIconUris } from '../src/lib/symbolIcons.js';
 
 export const tradingViewRouter = express.Router();
 
@@ -39,7 +40,7 @@ tradingViewRouter.get('/symbols', (req, res) => {
     exchange: 'EXORA', listed_exchange: 'EXORA', timezone: 'Etc/UTC', minmov: 1, pricescale: Math.pow(10, s.digits),
     fractional: false, has_intraday: true, supported_resolutions: RESOLUTIONS, intraday_multipliers: ['1', '5', '15', '30', '60', '240'],
     has_daily: true, has_weekly_and_monthly: true, has_empty_bars: false, has_no_volume: false, volume_precision: 2,
-    data_status: 'streaming', currency_code: 'USD',
+    data_status: 'streaming', currency_code: 'USD', logo_urls: symbolIconUris(s.symbol),
   });
 });
 
@@ -72,7 +73,7 @@ tradingViewRouter.get('/search', (req, res) => {
   res.json(
     marketData.activeSpecs().filter((s) => (!q || s.symbol.includes(q) || s.name.toUpperCase().includes(q)) && (!type || tvType(s) === type))
       .slice(0, limit)
-      .map((s) => ({ symbol: s.symbol, full_name: `EXORA:${s.symbol}`, description: s.name, exchange: 'EXORA', ticker: s.symbol, type: tvType(s) }))
+      .map((s) => ({ symbol: s.symbol, full_name: `EXORA:${s.symbol}`, description: s.name, exchange: 'EXORA', ticker: s.symbol, type: tvType(s), logo_urls: symbolIconUris(s.symbol) }))
   );
 });
 

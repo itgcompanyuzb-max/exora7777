@@ -52,6 +52,19 @@ export function TradingViewChart({
   const [isLoaded, setIsLoaded] = useState(false);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
   const widgetInstanceRef = useRef<any>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editSl, setEditSl] = useState('');
+  const [editTp, setEditTp] = useState('');
+  const editing = editId ? (positions || []).find((p) => p.id === editId) : undefined;
+
+  useEffect(() => {
+    exnessBroker.setEditHandler((id) => setEditId(id));
+    return () => exnessBroker.setEditHandler(null);
+  }, []);
+  useEffect(() => {
+    if (editing) { setEditSl(editing.sl ? String(editing.sl) : ''); setEditTp(editing.tp ? String(editing.tp) : ''); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
 
   // Sync internal interval with prop
   useEffect(() => {
@@ -138,7 +151,7 @@ export function TradingViewChart({
           save_image: false,
           studies_overrides: {},
           disabled_features: ['use_localstorage_for_settings', 'create_volume_indicator_by_default'],
-          enabled_features: [],
+          enabled_features: ['show_symbol_logos', 'show_symbol_logo_in_legend', 'show_symbol_logo_for_compare_studies'],
         });
 
         widgetInstanceRef.current = widget;
@@ -278,6 +291,36 @@ export function TradingViewChart({
               Brokerning narxlariga mos kelmaydigan tashqi grafik ko'rsatilmaydi.
             </div>
             <button onClick={() => setKey((k) => k + 1)} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs">Qayta urinish</button>
+          </div>
+        )}
+
+        {editing && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50" onClick={() => setEditId(null)}>
+            <div className="w-[320px] rounded-2xl border border-white/10 bg-[#14181b] p-4 text-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-bold text-sm">#{(editing.ticket || '').toString().replace('#', '')} {editing.symbol} <span className={editing.side === 'buy' ? 'text-sky-400' : 'text-orange-400'}>{editing.side.toUpperCase()} {editing.lotSize}</span></div>
+                <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-white text-lg leading-none">×</button>
+              </div>
+              <div className="text-[11px] text-gray-400 mb-3">Ochilish narxi: <span className="font-mono text-white">{editing.openPrice}</span></div>
+              {([['Stop Loss', editSl, setEditSl, -1], ['Take Profit', editTp, setEditTp, 1]] as const).map(([label, val, set, dir]) => (
+                <div key={label} className="mb-3">
+                  <label className="text-[11px] text-gray-400">{label}</label>
+                  <input value={val} onChange={(e) => set(e.target.value)} inputMode="decimal" placeholder="Narx" className="mt-1 w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#ffde00]/60" />
+                  <div className="flex gap-1.5 mt-1.5">
+                    {[0.1, 0.25, 0.5, 1].map((pct) => {
+                      const sign = (editing.side === 'buy' ? 1 : -1) * dir;
+                      const px = editing.openPrice * (1 + (sign * pct) / 100);
+                      return <button key={pct} type="button" onClick={() => set(px.toFixed(editing.openPrice < 10 ? 5 : editing.openPrice < 1000 ? 3 : 2))} className="px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-[10px] font-mono">{pct}%</button>;
+                    })}
+                    <button type="button" onClick={() => set('')} className="px-2 py-1 rounded-md bg-white/5 hover:bg-rose-500/20 text-[10px]">tozalash</button>
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => { onUpdateSlTp?.(editing.id, editSl ? parseFloat(editSl) : undefined, editTp ? parseFloat(editTp) : undefined); setEditId(null); }}
+                className="w-full rounded-lg bg-[#ffde00] text-black font-bold text-sm py-2.5 hover:brightness-95"
+              >Saqlash</button>
+            </div>
           </div>
         )}
 
