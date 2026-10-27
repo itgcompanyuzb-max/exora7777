@@ -504,7 +504,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           {/* 2. Search Icon (Qidiruv) */}
           <button
             onClick={() => setShowSearchModal(true)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all border border-transparent hover:border-gray-200 dark:hover:border-white/10"
+            className="w-9 h-9 rounded-xl hidden sm:flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all border border-transparent hover:border-gray-200 dark:hover:border-white/10"
             title="Qidiruv (Aktivlar, hisoblar, xizmatlar)"
           >
             <Search className="size-4" />
@@ -522,7 +522,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
           {/* 4. Help & Support Icon (?) */}
           <button
             onClick={() => openSupport()}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all"
+            className="w-9 h-9 rounded-xl hidden sm:flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-all"
             title="Yordam markazi & Live Chat"
           >
             <HelpCircle className="size-4" />
@@ -637,7 +637,7 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
       {/* 2. BODY LAYOUT: SIDEBAR + MAIN CONTENT AREA */}
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT SIDEBAR (Matching Screenshot 1 & 2) */}
-        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 border-r flex flex-col justify-between transition-all duration-200 select-none ${bgSidebar}`}>
+        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 border-r hidden lg:flex flex-col justify-between transition-all duration-200 select-none ${bgSidebar}`}>
           {/* Scrollable menu items */}
           <div className="p-3 overflow-y-auto space-y-1">
             {serverMode ? (
@@ -985,7 +985,18 @@ export function ClientCabinetView({ lang, onOpenKyc, onOpenTrade, onOpenMedia, o
         </aside>
 
         {/* RIGHT MAIN WORKSPACE */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 max-w-6xl">
+        <div className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-8 py-6 max-w-6xl">
+          {serverMode && (
+            <div className="lg:hidden sticky -top-6 z-20 -mx-4 mb-4 px-4 py-2 flex gap-2 overflow-x-auto bg-[#0f1210]/95 dark:bg-[#0f1210]/95 backdrop-blur border-b border-white/10 [scrollbar-width:none]">
+              {([
+                ['accounts', 'Hisoblar'], ['performance', 'Natijalar'], ['history', 'Tarix'], ['deposit', 'Depozit'], ['withdraw', 'Yechish'],
+                ['tx_history', 'Amallar'], ['referrals', 'Referal'], ['support_hub', 'Yordam'], ['profile', 'Profil'],
+              ] as const).map(([id, label]) => (
+                <button key={id} onClick={() => setCurrentNav(id)} className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-semibold ${currentNav === id ? 'bg-primary text-black' : 'bg-white/10 text-gray-200'}`}>{label}</button>
+              ))}
+              <button onClick={onOpenTrade} className="shrink-0 px-3.5 py-2 rounded-full text-xs font-bold bg-white text-black">Terminal</button>
+            </div>
+          )}
           {/* ======================= TAB 1: ACCOUNTS (DEFAULT SCREEN) ======================= */}
           {currentNav === 'accounts' && (
             <div className="space-y-6">

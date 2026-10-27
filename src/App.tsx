@@ -12,6 +12,8 @@ import { AdminPortalView } from "./components/broker/AdminPortalView";
 import { MediaCenterView } from "./components/broker/MediaCenterView";
 import { AuthModal } from "./components/broker/AuthModal";
 import { AuthGate } from "./components/broker/AuthGate";
+import { MobileTerminal } from "./components/trading/MobileTerminal";
+import { useIsMobile } from "./lib/useIsMobile";
 import { MetaTraderTerminal } from "./components/MetaTraderTerminal";
 import { getToken } from "./lib/api";
 import { startServerSync, signOut } from "./lib/serverSync";
@@ -39,6 +41,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<BrokerUser>(brokerStore.getActiveUser());
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => !!getToken());
   // While a stored session is being restored from the server, hold back the UI.
+  const isMobile = useIsMobile();
   const [booting, setBooting] = useState<boolean>(() => !!getToken());
   const [activeTab, setActiveTab] = useState<'landing' | 'webtrader' | 'metatrader' | 'cabinet' | 'kyc' | 'support' | 'admin' | 'media'>(() => (getToken() ? 'webtrader' : 'landing'));
 
@@ -138,13 +141,17 @@ export default function App() {
           />
         </div>
       ) : activeTab === 'webtrader' ? (
-        <div className="w-full h-screen overflow-hidden flex flex-col">
+        <div className="w-full h-[100dvh] overflow-hidden flex flex-col">
+          {isMobile ? (
+            <MobileTerminal onOpenCabinet={() => setActiveTab('cabinet')} onLogout={handleLogout} />
+          ) : (
           <WebTraderView
             lang={lang}
             onOpenDeposit={() => setActiveTab('cabinet')}
             onReturnToCabinet={() => setActiveTab('cabinet')}
             onLogout={handleLogout}
           />
+          )}
         </div>
       ) : activeTab === 'metatrader' ? (
         <div className="w-full h-screen overflow-hidden flex flex-col">

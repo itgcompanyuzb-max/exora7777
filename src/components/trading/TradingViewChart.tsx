@@ -28,6 +28,8 @@ interface TradingViewChartProps {
   onQuickTrade?: (side: 'buy' | 'sell', symbol: string) => void;
   onClosePosition?: (positionId: string) => void;
   onUpdateSlTp?: (positionId: string, sl?: number, tp?: number) => void;
+  /** Phone layout: no drawing toolbar and a trimmed header so the chart gets the screen. */
+  compact?: boolean;
 }
 
 export function TradingViewChart({
@@ -42,6 +44,7 @@ export function TradingViewChart({
   onQuickTrade,
   onClosePosition,
   onUpdateSlTp,
+  compact = false,
 }: TradingViewChartProps) {
   const containerId = useMemo(() => `tv_chart_container_${Math.random().toString(36).substring(2, 9)}`, []);
   const [currentInterval, setCurrentInterval] = useState(interval);
@@ -146,11 +149,12 @@ export function TradingViewChart({
           style: Number(chartStyle),
           toolbar_bg: '#0a0d0b',
           enable_publishing: false,
-          hide_side_toolbar: false,
-          allow_symbol_change: true,
+          hide_side_toolbar: compact,
+          allow_symbol_change: !compact,
           save_image: false,
           studies_overrides: {},
-          disabled_features: ['use_localstorage_for_settings', 'create_volume_indicator_by_default'],
+          overrides: compact ? { 'scalesProperties.fontSize': 11, 'paneProperties.legendProperties.showStudyArguments': false } : {},
+          disabled_features: ['use_localstorage_for_settings', 'create_volume_indicator_by_default', ...(compact ? ['left_toolbar', 'header_symbol_search', 'header_compare', 'header_undo_redo', 'header_screenshot', 'header_fullscreen_button', 'header_saveload', 'border_around_the_chart', 'timeframes_toolbar'] : [])],
           enabled_features: ['show_symbol_logos', 'show_symbol_logo_in_legend', 'show_symbol_logo_for_compare_studies'],
         });
 
@@ -184,7 +188,7 @@ export function TradingViewChart({
     return () => {
       isMounted = false;
     };
-  }, [containerId, tvSymbol, tvInterval, theme, chartStyle, key]);
+  }, [containerId, tvSymbol, tvInterval, theme, chartStyle, key, compact]);
 
   // Synchronize open positions with ExnessBroker native chart position lines (current symbol only)
   useEffect(() => {

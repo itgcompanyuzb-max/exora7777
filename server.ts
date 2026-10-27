@@ -1,5 +1,6 @@
 import express from "express";
 import http from "http";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
@@ -463,6 +464,9 @@ async function startServer() {
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Exora server running on http://0.0.0.0:${PORT}`);
+    // Handy for testing on a phone connected to the same Wi-Fi.
+    const lan = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === "IPv4" && !i.internal).map((i) => `http://${i!.address}:${PORT}`);
+    if (lan.length) console.log(`  Telefondan (bir xil Wi-Fi): ${lan.join("   ")}`);
   });
 }
 
